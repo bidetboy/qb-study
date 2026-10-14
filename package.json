@@ -1,0 +1,7 @@
+{
+  "name": "qb-study",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Quiz bowl practice reader + cloze flashcards powered by the QB Reader API",
+  "scripts": { "start": "node server.js" }
+}
