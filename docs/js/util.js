@@ -154,6 +154,20 @@ export const CATEGORIES = {
   'Pop Culture': ['Movies', 'Music', 'Sports', 'Television', 'Video Games', 'Other Pop Culture'],
 };
 
+// What each QB Reader difficulty level means, with typical tournaments at that level.
+export const DIFFICULTY_INFO = {
+  1: 'Very accessible clues and famous answers. Middle school tournaments (e.g. MSNCT).',
+  2: 'Beginner and novice high school sets. Mostly well-known answers with gentle clues.',
+  3: 'Typical local high school tournaments. Standard canon, clear giveaways.',
+  4: 'Tougher high school sets. Deeper canon and harder lead-ins.',
+  5: 'National high school championships (e.g. HSNCT, PACE NSC).',
+  6: 'Entry-level college (●). Roughly ACF Fall difficulty.',
+  7: 'Medium college (●●). Between ACF Fall and Regionals, e.g. ACF Winter.',
+  8: 'Standard college (●●●). ACF Regionals level.',
+  9: 'Hardest regular college level (●●●●). ACF Nationals, ICT.',
+  10: 'Open — beyond college nationals, written for top adult players (e.g. Chicago Open).',
+};
+
 export const DIFFICULTIES = {
   1: 'Middle school', 2: 'Easy HS', 3: 'Regular HS', 4: 'Hard HS', 5: 'National HS',
   6: 'Easy college', 7: 'Medium college', 8: 'Regionals', 9: 'Nationals', 10: 'Open',

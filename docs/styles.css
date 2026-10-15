@@ -212,6 +212,18 @@ body.logged-out .login .linkish { align-self: flex-start; padding: 0; }
 .filters .subs { display: flex; flex-direction: column; margin: 2px 0 0 20px; }
 .filters .sub { font-size: .88rem; color: var(--muted); cursor: pointer; }
 
+/* difficulty picker */
+.diff-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px 20px; margin-top: 6px; }
+.diff-group { display: flex; flex-direction: column; gap: 2px; }
+.diff-group .label { margin: 4px 0 2px; }
+.diff-option { display: grid; grid-template-columns: auto 22px 1fr; gap: 8px; align-items: start; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.diff-option:hover { background: var(--surface-2); }
+.diff-option:has(input:checked) { background: var(--accent-soft); }
+.diff-option input { margin-top: 3px; }
+.diff-num { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; text-align: right; }
+.diff-name { display: block; font-weight: 600; font-size: .9rem; }
+.diff-desc { display: block; font-size: .8rem; color: var(--muted); line-height: 1.4; }
+
 /* questions */
 .qcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin: 10px 0; box-shadow: var(--shadow); }
 .q-meta { font-size: .82rem; color: var(--muted); margin-bottom: 6px; }

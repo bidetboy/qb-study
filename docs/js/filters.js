@@ -1,5 +1,5 @@
 // Category / difficulty / year filter panel shared by Reader, Search and Frequency views.
-import { h, CATEGORIES, DIFFICULTIES } from './util.js';
+import { h, CATEGORIES, DIFFICULTIES, DIFFICULTY_INFO } from './util.js';
 
 export function filterPanel(f, onChange, { years = true } = {}) {
   f.subcategories ||= [];
@@ -27,15 +27,12 @@ export function filterPanel(f, onChange, { years = true } = {}) {
           h('input', { type: 'checkbox', checked: f.subcategories.includes(s), onChange: (e) => { toggle(f.subcategories, s, e.target.checked); changed(); } }),
           ' ', s.replace(/ (Literature|History|Fine Arts|Pop Culture|Science)$/, '') || s))));
     });
-    const diffs = Object.entries(DIFFICULTIES).map(([d, label]) => h('label', { class: 'chip', title: label },
-      h('input', { type: 'checkbox', checked: f.difficulties.includes(Number(d)), onChange: (e) => { toggle(f.difficulties, Number(d), e.target.checked); changed(); } }),
-      ` ${d}`));
     root.replaceChildren(
       h('div', { class: 'row between' }, h('b', null, 'Categories'),
         h('span', { class: 'row gap-s' },
           h('button', { class: 'btn tiny ghost', onClick: () => { f.subcategories.length = 0; f.difficulties.length = 0; f.minYear = ''; f.maxYear = ''; changed(); } }, 'Clear all'))),
       h('div', { class: 'cats' }, cats),
-      h('div', { class: 'row wrap gap-s', style: 'margin-top:10px' }, h('b', null, 'Difficulty'), diffs),
+      h('div', { style: 'margin-top:14px' }, difficultyPicker(f.difficulties, changed)),
       years && h('div', { class: 'row wrap gap-s', style: 'margin-top:10px' }, h('b', null, 'Years'),
         h('input', { class: 'input year', type: 'number', placeholder: 'min', value: f.minYear ?? '', onChange: (e) => { f.minYear = e.target.value; onChange?.(); } }),
         '–',
@@ -54,12 +51,25 @@ export function filterSummary(f) {
   return parts.length ? parts.join(' · ') : 'All questions';
 }
 
-export function difficultyChips(arr) {
-  return h('div', { class: 'row wrap gap-s' }, h('b', null, 'Difficulty'),
-    Object.entries(DIFFICULTIES).map(([d, label]) => h('label', { class: 'chip', title: label },
-      h('input', { type: 'checkbox', checked: arr.includes(Number(d)), onChange: (e) => {
-        const i = arr.indexOf(Number(d));
-        if (e.target.checked && i < 0) arr.push(Number(d));
-        if (!e.target.checked && i >= 0) arr.splice(i, 1);
-      } }), ` ${d}`)));
+// Difficulty checkboxes, each with its name and a short description.
+export function difficultyPicker(arr, onChange) {
+  const toggle = (d, on) => {
+    const i = arr.indexOf(d);
+    if (on && i < 0) arr.push(d);
+    if (!on && i >= 0) arr.splice(i, 1);
+    onChange?.();
+  };
+  const group = (title, levels) => h('div', { class: 'diff-group' },
+    h('div', { class: 'label' }, title),
+    levels.map((d) => h('label', { class: 'diff-option' },
+      h('input', { type: 'checkbox', checked: arr.includes(d), onChange: (e) => toggle(d, e.target.checked) }),
+      h('span', { class: 'diff-num' }, d),
+      h('span', null, h('span', { class: 'diff-name' }, DIFFICULTIES[d]), h('span', { class: 'diff-desc' }, DIFFICULTY_INFO[d])))));
+  return h('div', null,
+    h('b', null, 'Difficulty'),
+    h('div', { class: 'diff-grid' },
+      group('Middle & high school', [1, 2, 3, 4, 5]),
+      group('College & open', [6, 7, 8, 9, 10])));
 }
+
+export const difficultyChips = (arr) => difficultyPicker(arr);
