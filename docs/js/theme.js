@@ -17,6 +17,7 @@ function paint(btn) {
 }
 
 export function initThemeToggle(btn) {
+  if (!btn) return; // page HTML from an older cached version
   paint(btn);
   btn.addEventListener('click', () => {
     const next = current() === 'dark' ? 'light' : 'dark';
