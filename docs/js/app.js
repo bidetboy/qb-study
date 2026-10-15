@@ -202,7 +202,7 @@ function renderEditor(el, { note = null, deckId = null }) {
         h('span', { class: 'muted small' }, '⌘/Ctrl+Enter to save'),
         h('button', { class: 'btn primary', onClick: submit }, isEdit ? 'Save changes' : 'Add note'))));
   setTimeout(() => text.focus());
-  return { onKey(e) { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); submit(); } } };
+  return { onKey(e) { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { submit(); return true; } return false; } };
 }
 
 /* ================= Study ================= */
@@ -284,12 +284,14 @@ function renderStudy(el, deckId) {
 
   return {
     onKey(e, typing) {
-      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
-      if ((e.key === ' ' || e.key === 'Enter') && card && !showing) { e.preventDefault(); showing = true; paint(); }
-      else if (e.key === ' ' && showing) { e.preventDefault(); grade(3); }
-      else if (['1', '2', '3', '4'].includes(e.key)) grade(Number(e.key));
-      else if (e.key.toLowerCase() === 'u') doUndo();
-      else if (e.key.toLowerCase() === 'e' && card) location.hash = `#/edit/${card.noteId}`;
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return false;
+      const k = e.key.toLowerCase();
+      if ((k === ' ' || k === 'enter') && card && !showing) { showing = true; paint(); return true; }
+      if (k === ' ' && showing) { grade(3); return true; }
+      if (['1', '2', '3', '4'].includes(k)) { grade(Number(k)); return true; }
+      if (k === 'u') { doUndo(); return true; }
+      if (k === 'e' && card) { location.hash = `#/edit/${card.noteId}`; return true; }
+      return false;
     },
   };
 }
@@ -339,7 +341,9 @@ document.addEventListener('keydown', (e) => {
   if ($('.overlay')) return;
   const t = e.target;
   const typing = t instanceof HTMLElement && (t.matches('input, textarea, select') || t.isContentEditable);
-  view?.onKey?.(e, typing);
+  // A view returns true when it used the key as a shortcut; stop the browser's default action so the
+  // key isn't also typed into an input the shortcut just focused (or scroll the page, for Space).
+  if (view?.onKey?.(e, typing)) e.preventDefault();
 });
 
 /* ================= Accounts ================= */

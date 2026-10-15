@@ -283,6 +283,8 @@ body.logged-out .login .linkish { align-self: flex-start; padding: 0; }
 .drafts { display: flex; flex-direction: column; gap: 10px; max-height: 50vh; overflow: auto; padding-right: 4px; }
 .draft { display: flex; gap: 10px; align-items: flex-start; }
 .draft-check { padding-top: 8px; }
+.draft .verdict.small { display: inline-block; font-size: .78rem; padding: 0 8px; margin-bottom: 4px; }
+.missed-only { padding: 8px 10px; border-radius: 8px; background: var(--surface-2); }
 
 /* modal + toast */
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px; z-index: 50; overflow: auto; }

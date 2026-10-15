@@ -252,7 +252,7 @@ function sessionLine() {
 function actionsRow() {
   return h('div', { class: 'row wrap gap-s' },
     saveButton(R.q, R.type),
-    h('button', { class: 'btn small', onClick: () => openConverter(R.q, R.type), title: 'C' }, '＋ Make cards'));
+    h('button', { class: 'btn small', onClick: () => openConverter(R.q, R.type, { results: R.type === 'bonus' ? R.entry?.parts : null }), title: 'C' }, '＋ Make cards'));
 }
 
 function paintTossup(stage) {
@@ -439,25 +439,28 @@ export function renderReader(main) {
       if (R.phase === 'reading') R.phase = 'paused';
       els = null;
     },
+    // Returns true when the key was used as a shortcut, so the caller stops the browser from also
+    // typing it (otherwise e.g. "n" lands in the next bonus part's freshly focused answer box).
     onKey(e, typing) {
-      if (typing) return;
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return false;
       const k = e.key.toLowerCase();
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const bonusMarking = R.type === 'bonus' && R.phase === 'bonus' && R.revealed;
       if (k === ' ') {
-        e.preventDefault();
         if (['idle', 'answered', 'end'].includes(R.phase)) next();
         else if (R.type === 'tossup') buzz();
         else if (R.phase === 'bonus' && !R.revealed) revealPart('');
-      } else if (k === 'enter' && R.type === 'bonus' && R.revealed && R.suggestion != null) {
-        markPart(R.suggestion);
-      } else if (R.type === 'bonus' && R.phase === 'bonus' && R.revealed && (k === 'y' || k === '1')) markPart(true);
-      else if (R.type === 'bonus' && R.phase === 'bonus' && R.revealed && (k === 'n' || k === '0')) markPart(false);
-      else if (k === 'n') next();
-      else if (k === 'p') togglePause();
-      else if (k === 'r' && R.type === 'tossup') { if (['reading', 'paused', 'waiting'].includes(R.phase)) finishTossup(null); }
-      else if (k === 'o' && R.phase === 'answered' && R.type === 'tossup') overrideTossup();
-      else if (k === 's' && R.q) { const on = toggleSaved(R.q, R.type); toast(on ? 'Saved' : 'Removed from saved'); paint(); }
-      else if (k === 'c' && R.q && R.phase === 'answered') openConverter(R.q, R.type);
+        return true; // never let Space scroll the page or type into a new box
+      }
+      if (k === 'enter' && bonusMarking && R.suggestion != null) { markPart(R.suggestion); return true; }
+      if (bonusMarking && (k === 'y' || k === '1')) { markPart(true); return true; }
+      if (bonusMarking && (k === 'n' || k === '0')) { markPart(false); return true; }
+      if (k === 'n') { next(); return true; }
+      if (k === 'p') { togglePause(); return true; }
+      if (k === 'r' && R.type === 'tossup' && ['reading', 'paused', 'waiting'].includes(R.phase)) { finishTossup(null); return true; }
+      if (k === 'o' && R.phase === 'answered' && R.type === 'tossup') { overrideTossup(); return true; }
+      if (k === 's' && R.q) { const on = toggleSaved(R.q, R.type); toast(on ? 'Saved' : 'Removed from saved'); paint(); return true; }
+      if (k === 'c' && R.q && R.phase === 'answered') { openConverter(R.q, R.type, { results: R.type === 'bonus' ? R.entry?.parts : null }); return true; }
+      return false;
     },
   };
 }
