@@ -54,6 +54,52 @@ export async function signOut() {
   await (await sb()).auth.signOut();
 }
 
+export async function changePassword(newPassword) {
+  if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.');
+  const { error } = await (await sb()).auth.updateUser({ password: newPassword });
+  if (error) throw new Error(friendly(error));
+}
+
+/* ---------- recovery codes (see supabase/schema.sql) ---------- */
+
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
+
+// 16 random characters (80 bits), shown as XXXX-XXXX-XXXX-XXXX.
+export function generateRecoveryCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const chars = [...bytes].map((b) => CODE_ALPHABET[b % 32]).join('');
+  return chars.match(/.{4}/g).join('-');
+}
+
+const normalizeCode = (code) => String(code).toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+export async function setRecoveryCode(code) {
+  const { error } = await (await sb()).rpc('set_recovery_code', { p_code: normalizeCode(code) });
+  if (error) throw new Error(friendly(error));
+}
+
+export async function hasRecoveryCode() {
+  const { data, error } = await (await sb()).rpc('has_recovery_code');
+  if (error) throw new Error(friendly(error));
+  return Boolean(data);
+}
+
+// Resets the password with a recovery code, signs in, and returns the replacement code.
+export async function resetPassword(username, code, newPassword) {
+  const u = username.trim().toLowerCase();
+  if (!USERNAME_RE.test(u)) throw new Error('Enter your username.');
+  if (normalizeCode(code).length !== 16) throw new Error('Recovery codes look like XXXX-XXXX-XXXX-XXXX.');
+  if (newPassword.length < 6) throw new Error('Password must be at least 6 characters.');
+  const newCode = generateRecoveryCode();
+  const { data, error } = await (await sb()).rpc('reset_password_with_code', {
+    p_username: u, p_code: normalizeCode(code), p_new_password: newPassword, p_new_code: normalizeCode(newCode),
+  });
+  if (error) throw new Error(friendly(error));
+  if (!data) throw new Error('That username and recovery code don’t match.');
+  const user = await signIn(u, newPassword);
+  return { user, newCode };
+}
+
 /* ---------- cloud data: one row per user in public.user_data ---------- */
 
 export async function fetchCloud(userId) {

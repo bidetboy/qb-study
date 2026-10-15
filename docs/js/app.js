@@ -5,7 +5,10 @@ import {
   deckCounts, nextCard, nextDueTime, gradeCard, undoGrade, reviewsToday, storageMode,
   resetDb, refreshFromCloud, hasUnsaved,
 } from './store.js';
-import { authEnabled, currentUser, signIn, signUp, signOut, usernameOf } from './auth.js';
+import {
+  authEnabled, currentUser, signIn, signUp, signOut, usernameOf, changePassword,
+  generateRecoveryCode, setRecoveryCode, hasRecoveryCode, resetPassword,
+} from './auth.js';
 import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js';
 import { previewLabels, fmtSpan } from './srs.js';
 import { deckSelect } from './convert.js';
@@ -63,6 +66,7 @@ function settingsPanel() {
   } });
   return h('details', { class: 'panel', style: 'margin-top:32px' }, h('summary', null, 'Settings & data'),
     h('div', { class: 'stack', style: 'margin-top:10px' },
+      storageMode === 'cloud' && accountSection(),
       h('label', { class: 'row gap-s' }, 'New cards per day (per deck)',
         h('input', { class: 'input year', type: 'number', min: 0, max: 9999, value: db.settings.newPerDay,
           onChange: (e) => { db.settings.newPerDay = Math.max(0, Number(e.target.value) || 0); save(); } })),
@@ -73,6 +77,27 @@ function settingsPanel() {
         cloud: 'Your progress is saved to your account and syncs across devices when you log in.',
         server: 'Data is saved to data/db.json next to the app, with a daily backup in data/backups/.',
       }[storageMode] ?? 'Your data is stored in this browser on this device only. Export a backup now and then — clearing site data or switching browsers starts fresh.')));
+}
+
+function accountSection() {
+  const changePw = async () => {
+    const pw = await promptDialog('New password (at least 6 characters)', '', 'Next', 'password');
+    if (!pw) return;
+    const again = await promptDialog('Type the new password again', '', 'Change password', 'password');
+    if (again == null) return;
+    if (pw !== again) return toast('Passwords do not match', 'error');
+    try { await changePassword(pw); toast('Password changed'); } catch (err) { toast(err.message, 'error'); }
+  };
+  const newCode = async () => {
+    if (!(await confirmDialog('Make a new recovery code? Your old code will stop working.', 'Make new code'))) return;
+    await issueRecoveryCode('Here is your new recovery code. Your old one no longer works.');
+  };
+  return h('div', { class: 'stack account-box' },
+    h('b', null, 'Account'),
+    h('div', { class: 'row gap-s wrap' },
+      h('button', { class: 'btn small', onClick: changePw }, 'Change password'),
+      h('button', { class: 'btn small', onClick: newCode }, 'New recovery code')),
+    h('p', { class: 'muted small' }, 'If you forget your password, your recovery code lets you reset it from the login screen.'));
 }
 
 /* ================= Deck browser ================= */
@@ -319,41 +344,92 @@ document.addEventListener('keydown', (e) => {
 
 let ready = false;
 
+// Shows a recovery code and resolves once the user confirms they saved it.
+function showRecoveryCode(code, intro) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => { if (!done) { done = true; resolve(); m.close(); } };
+    const ok = h('button', { class: 'btn primary', disabled: true, onClick: finish }, 'Continue');
+    const text = `QB Study recovery code\nUsername: ${$('#user-box')?.dataset.username || ''}\nCode: ${code}\n\nUse this on the login screen (Forgot password?) to reset your password. It works once; you will get a new one after using it.\n`;
+    const m = modal('Save your recovery code', h('div', { class: 'stack' },
+      h('p', null, intro),
+      h('div', { class: 'recovery-code' }, code),
+      h('div', { class: 'row gap-s wrap' },
+        h('button', { class: 'btn small', onClick: () => navigator.clipboard?.writeText(code).then(() => toast('Copied')) }, 'Copy'),
+        h('button', { class: 'btn small', onClick: () => download('qb-study-recovery-code.txt', text) }, 'Download .txt')),
+      h('p', { class: 'muted small' }, 'This is the only way to get back in if you forget your password. It won’t be shown again.'),
+      h('label', { class: 'row gap-s' }, h('input', { type: 'checkbox', onChange: (e) => { ok.disabled = !e.target.checked; } }), 'I saved my recovery code'),
+      h('div', { class: 'row end' }, ok)),
+      { onClose: () => { if (!done) { done = true; resolve(); } } });
+  });
+}
+
+async function issueRecoveryCode(intro) {
+  const code = generateRecoveryCode();
+  try {
+    await setRecoveryCode(code);
+  } catch (err) {
+    toast(`Could not create a recovery code: ${err.message}`, 'error');
+    return;
+  }
+  await showRecoveryCode(code, intro);
+}
+
 function renderLogin(message = '') {
   ready = false;
   view?.cleanup?.();
   view = null;
   document.body.classList.add('logged-out');
   $('#user-box').replaceChildren();
-  let mode = 'login';
+  let mode = 'login'; // 'login' | 'signup' | 'reset'
   const username = h('input', { class: 'input', autocomplete: 'username', placeholder: 'Username', autocapitalize: 'none', spellcheck: false });
+  const code = h('input', { class: 'input mono', placeholder: 'Recovery code (XXXX-XXXX-XXXX-XXXX)', autocapitalize: 'characters', spellcheck: false, autocomplete: 'off' });
   const password = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', placeholder: 'Password' });
   const confirm = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', placeholder: 'Confirm password' });
   const error = h('div', { class: 'warn small' }, message);
   const submit = h('button', { class: 'btn primary big' });
   const tabs = h('div', { class: 'segmented' });
   const hint = h('p', { class: 'muted small' });
+  const forgot = h('button', { type: 'button', class: 'linkish', onClick: () => setMode(mode === 'reset' ? 'login' : 'reset') });
+
+  const setMode = (m) => { mode = m; error.textContent = ''; paint(); };
 
   const paint = () => {
     tabs.replaceChildren(...[['login', 'Log in'], ['signup', 'Create account']].map(([m, label]) =>
-      h('button', { type: 'button', class: `seg ${mode === m ? 'on' : ''}`, onClick: () => { mode = m; error.textContent = ''; paint(); } }, label)));
-    confirm.style.display = mode === 'signup' ? '' : 'none';
-    password.autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
-    submit.textContent = mode === 'signup' ? 'Create account' : 'Log in';
-    hint.textContent = mode === 'signup'
-      ? 'Usernames are 3–24 letters, numbers or _. No email needed — but that also means there is no password reset, so pick one you will remember.'
-      : 'Your decks, cards, saved questions and stats load on any device you log in from.';
+      h('button', { type: 'button', class: `seg ${mode === m ? 'on' : ''}`, onClick: () => setMode(m) }, label)));
+    tabs.style.display = mode === 'reset' ? 'none' : '';
+    code.style.display = mode === 'reset' ? '' : 'none';
+    confirm.style.display = mode === 'login' ? 'none' : '';
+    password.placeholder = mode === 'reset' ? 'New password' : 'Password';
+    password.autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+    submit.textContent = { login: 'Log in', signup: 'Create account', reset: 'Reset password' }[mode];
+    forgot.textContent = mode === 'reset' ? '‹ Back to log in' : 'Forgot password?';
+    forgot.style.display = mode === 'signup' ? 'none' : '';
+    hint.textContent = {
+      login: 'Your decks, cards, saved questions and stats load on any device you log in from.',
+      signup: 'Usernames are 3–24 letters, numbers or _. No email needed — you’ll get a recovery code to reset your password if you forget it.',
+      reset: 'Enter the recovery code you saved when you created your account (or your latest one from Settings).',
+    }[mode];
   };
 
   const onSubmit = async (e) => {
     e.preventDefault();
     error.textContent = '';
-    if (mode === 'signup' && password.value !== confirm.value) { error.textContent = 'Passwords do not match.'; return; }
+    if (mode !== 'login' && password.value !== confirm.value) { error.textContent = 'Passwords do not match.'; return; }
     submit.disabled = true;
     submit.textContent = 'One moment…';
     try {
-      const user = mode === 'signup' ? await signUp(username.value, password.value) : await signIn(username.value, password.value);
-      await startApp(user);
+      if (mode === 'login') {
+        await startApp(await signIn(username.value, password.value));
+      } else if (mode === 'signup') {
+        const user = await signUp(username.value, password.value);
+        await startApp(user, { newAccount: true });
+      } else {
+        const { user, newCode } = await resetPassword(username.value, code.value, password.value);
+        await startApp(user, { skipRecoveryCheck: true });
+        toast('Password reset — you’re logged in');
+        await showRecoveryCode(newCode, 'Your old recovery code has been used up. Here is your new one:');
+      }
     } catch (err) {
       error.textContent = err.message;
       submit.disabled = false;
@@ -365,13 +441,14 @@ function renderLogin(message = '') {
     h('h2', null, 'QB Study'),
     h('p', { class: 'muted' }, 'Quiz bowl reader + cloze flashcards. Log in to keep your progress across devices.'),
     tabs,
-    h('form', { class: 'stack', onSubmit }, username, password, confirm, error, submit),
+    h('form', { class: 'stack', onSubmit }, username, code, password, confirm, error, submit),
+    forgot,
     hint));
   paint();
   username.focus();
 }
 
-async function startApp(user) {
+async function startApp(user, { newAccount = false, skipRecoveryCheck = false } = {}) {
   if (user) {
     main.replaceChildren(h('div', { class: 'empty muted' }, 'Loading your data…'));
     try {
@@ -379,8 +456,11 @@ async function startApp(user) {
     } catch (err) {
       return renderLogin(`Could not load your data: ${err.message}`);
     }
-    $('#user-box').replaceChildren(
-      h('span', { class: 'muted small' }, usernameOf(user)),
+    const name = usernameOf(user);
+    const box = $('#user-box');
+    box.dataset.username = name;
+    box.replaceChildren(
+      h('span', { class: 'muted small' }, name),
       h('button', { class: 'btn tiny ghost', onClick: logout }, 'Log out'));
   } else {
     await loadDb();
@@ -389,6 +469,14 @@ async function startApp(user) {
   ready = true;
   if (!location.hash || location.hash === '#/login') location.hash = '#/decks';
   else route();
+
+  if (user && newAccount) {
+    await issueRecoveryCode('Welcome! If you ever forget your password, this code lets you reset it. Keep it somewhere safe.');
+  } else if (user && !skipRecoveryCheck) {
+    // Accounts created before recovery codes existed get one now.
+    const has = await hasRecoveryCode().catch(() => true);
+    if (!has) await issueRecoveryCode('Your account doesn’t have a recovery code yet. Save this one so you can reset your password if you forget it.');
+  }
 }
 
 async function logout() {

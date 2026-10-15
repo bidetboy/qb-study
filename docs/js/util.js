@@ -97,10 +97,10 @@ export function confirmDialog(message, okLabel = 'Delete') {
   });
 }
 
-export function promptDialog(title, initial = '', okLabel = 'Save') {
+export function promptDialog(title, initial = '', okLabel = 'Save', type = 'text') {
   return new Promise((resolve) => {
     let done = false;
-    const input = h('input', { class: 'input', value: initial });
+    const input = h('input', { class: 'input', value: initial, type });
     const finish = (v) => { if (!done) { done = true; resolve(v); m.close(); } };
     const m = modal(title, h('form', { onSubmit: (e) => { e.preventDefault(); finish(input.value.trim() || null); } },
       input,

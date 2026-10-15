@@ -170,6 +170,10 @@ body.logged-out nav, body.logged-out .user-box { display: none; }
 .login .segmented { align-self: flex-start; }
 .login .btn.big { width: 100%; }
 
+body.logged-out .login .linkish { align-self: flex-start; padding: 0; }
+.recovery-code { font: 600 1.4rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; text-align: center; padding: 14px; border: 1px dashed var(--accent); border-radius: 10px; background: var(--accent-soft); color: var(--accent); user-select: all; }
+.account-box { padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+
 /* filters */
 .filters .cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 16px; margin-top: 8px; }
 .filters .cat-name { font-weight: 600; cursor: pointer; }
