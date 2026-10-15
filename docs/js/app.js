@@ -14,8 +14,10 @@ import { previewLabels, fmtSpan } from './srs.js';
 import { deckSelect } from './convert.js';
 import { renderReader } from './reader.js';
 import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js';
+import { initThemeToggle } from './theme.js';
 
 const main = $('#main');
+initThemeToggle($('#theme-toggle'));
 
 /* ================= Decks ================= */
 

@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>QB Study</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔔</text></svg>">
+  <script>
+    // Apply the saved theme before first paint to avoid a flash.
+    try { const t = localStorage.getItem('qbstudy-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -20,6 +24,7 @@
       <a href="#/stats">Stats</a>
     </nav>
     <div id="user-box" class="user-box"></div>
+    <button id="theme-toggle" class="theme-toggle" type="button"></button>
   </header>
   <main id="main"></main>
   <script type="module" src="js/app.js"></script>

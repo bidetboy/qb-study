@@ -20,8 +20,9 @@
   --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
   color-scheme: light;
 }
+/* Dark theme: follows the system unless the user picked a theme (html[data-theme]) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #151517;
     --surface: #1e1e21;
     --surface-2: #26262a;
@@ -42,6 +43,27 @@
     --shadow: none;
     color-scheme: dark;
   }
+}
+:root[data-theme="dark"] {
+  --bg: #151517;
+  --surface: #1e1e21;
+  --surface-2: #26262a;
+  --border: #34343a;
+  --text: #ecebe8;
+  --muted: #9b9890;
+  --accent: #7b93ff;
+  --accent-soft: #252c48;
+  --ok: #63c574;
+  --ok-soft: #1d3322;
+  --bad: #ff7676;
+  --bad-soft: #3d2020;
+  --warn: #f0a050;
+  --new: #5aa9f5;
+  --learn: #ff8a50;
+  --due: #63c574;
+  --power: #d98bf0;
+  --shadow: none;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -164,6 +186,16 @@ input[type="checkbox"] { accent-color: var(--accent); }
 
 /* accounts */
 .user-box { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+body.logged-out .theme-toggle { margin-left: auto; }
+.theme-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; padding: 0;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); cursor: pointer;
+}
+.theme-toggle:hover { background: var(--surface-2); }
+.theme-toggle svg { width: 18px; height: 18px; }
+html.theme-anim, html.theme-anim * { transition: background-color .25s, border-color .25s, color .25s !important; }
 body.logged-out nav, body.logged-out .user-box { display: none; }
 .login { max-width: 380px; margin: 8vh auto 0; display: flex; flex-direction: column; gap: 14px; }
 .login h2 { margin: 0; font-size: 1.8rem; }
