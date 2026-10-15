@@ -1,8 +1,8 @@
 // Turn QB Reader questions into cloze notes.
-import { h, modal, toast, htmlToText, promptDialog } from './util.js';
-import { db, save as saveDb, addNote, createDeck } from './store.js';
-import { clozeNumbers, wrapSelection, clozeKeyHandler, renderCloze } from './cloze.js';
-import { mainAnswer, qMeta } from './qview.js';
+import { h, modal, toast, htmlToText, promptDialog } from './util.js?v=f0eb06de';
+import { db, save as saveDb, addNote, createDeck } from './store.js?v=f0eb06de';
+import { clozeNumbers, wrapSelection, clozeKeyHandler, renderCloze } from './cloze.js?v=f0eb06de';
+import { mainAnswer, qMeta } from './qview.js?v=f0eb06de';
 
 const ABBREV = /(?:\b(?:St|Mr|Mrs|Ms|Dr|Jr|Sr|vs|ca|No|Mt|Ft|Gen|Col|Lt|Sgt|Rev|Op|Vol|ed|U\.S|e\.g|i\.e|cf|al)|\b[A-Z])\.$/;
 

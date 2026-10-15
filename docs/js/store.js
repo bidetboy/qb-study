@@ -1,8 +1,8 @@
 // App state. Persisted to the signed-in user's Supabase row (cloud), the local dev server, or this browser.
-import { uid, toast, todayKey } from './util.js';
-import { fetchCloud, pushCloud } from './auth.js';
-import { clozeNumbers } from './cloze.js';
-import { answer as srsAnswer, startOfDay, DAY } from './srs.js';
+import { uid, toast, todayKey } from './util.js?v=f0eb06de';
+import { fetchCloud, pushCloud } from './auth.js?v=f0eb06de';
+import { clozeNumbers } from './cloze.js?v=f0eb06de';
+import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=f0eb06de';
 
 const LS_KEY = 'qbstudy-db';
 const IDB_NAME = 'qbstudy';

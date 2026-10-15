@@ -1,21 +1,21 @@
 // Entry point: router + deck management, card editor, and study (review) screen.
-import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js';
+import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=f0eb06de';
 import {
   db, loadDb, save, flush, replaceDb, createDeck, getDeck, deleteDeck, addNote, updateNote, deleteNote, getNote,
   deckCounts, nextCard, nextDueTime, gradeCard, undoGrade, reviewsToday, storageMode,
   resetDb, refreshFromCloud, hasUnsaved,
-} from './store.js';
+} from './store.js?v=f0eb06de';
 import {
   authEnabled, currentUser, signIn, signUp, signOut, usernameOf, changePassword,
   generateRecoveryCode, setRecoveryCode, hasRecoveryCode, resetPassword,
-} from './auth.js';
-import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js';
-import { previewLabels, fmtSpan } from './srs.js';
-import { deckSelect } from './convert.js';
-import { renderReader } from './reader.js';
-import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js';
-import { renderPlay } from './multiplayer.js';
-import { initThemeToggle } from './theme.js';
+} from './auth.js?v=f0eb06de';
+import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=f0eb06de';
+import { previewLabels, fmtSpan } from './srs.js?v=f0eb06de';
+import { deckSelect } from './convert.js?v=f0eb06de';
+import { renderReader } from './reader.js?v=f0eb06de';
+import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=f0eb06de';
+import { renderPlay } from './multiplayer.js?v=f0eb06de';
+import { initThemeToggle } from './theme.js?v=f0eb06de';
 
 const main = $('#main');
 initThemeToggle($('#theme-toggle'));

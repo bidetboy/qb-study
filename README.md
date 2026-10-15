@@ -6,6 +6,8 @@ Quiz bowl practice reader plus Anki-style cloze flashcards, built on the [QB Rea
 
 The site in `docs/` is fully static and deploys with GitHub Pages (Settings → Pages → Deploy from branch → `main` / `/docs`). Every push to `main` updates the live site. When accounts are configured, each user's progress is saved to Supabase and syncs across devices; otherwise data is stored in the browser (IndexedDB).
 
+**Cache busting:** after changing anything in `docs/`, run `npm run stamp` before committing. It adds a content-hash `?v=` to every script and stylesheet URL so browsers never mix new and cached files.
+
 ## Accounts & sync (Supabase)
 
 Logins and cross-device sync use a free [Supabase](https://supabase.com) project. Until `docs/js/config.js` is filled in, the app runs without accounts.

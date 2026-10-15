@@ -48,7 +48,7 @@ export function filterParams(f = {}) {
   };
 }
 
-import { CATEGORIES } from './util.js';
+import { CATEGORIES } from './util.js?v=f0eb06de';
 export function categoryOf(sub) {
   for (const [cat, subs] of Object.entries(CATEGORIES)) if (subs.includes(sub)) return cat;
   return null;

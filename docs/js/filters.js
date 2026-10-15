@@ -1,5 +1,5 @@
 // Category / difficulty / year filter panel shared by Reader, Search and Frequency views.
-import { h, CATEGORIES, DIFFICULTIES, DIFFICULTY_INFO } from './util.js';
+import { h, CATEGORIES, DIFFICULTIES, DIFFICULTY_INFO } from './util.js?v=f0eb06de';
 
 export function filterPanel(f, onChange, { years = true } = {}) {
   f.subcategories ||= [];
