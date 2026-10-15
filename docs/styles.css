@@ -162,6 +162,14 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .bar-cell { display: flex; align-items: center; gap: 8px; min-width: 140px; }
 .bar { height: 8px; border-radius: 4px; background: var(--accent); opacity: .7; }
 
+/* accounts */
+.user-box { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+body.logged-out nav, body.logged-out .user-box { display: none; }
+.login { max-width: 380px; margin: 8vh auto 0; display: flex; flex-direction: column; gap: 14px; }
+.login h2 { margin: 0; font-size: 1.8rem; }
+.login .segmented { align-self: flex-start; }
+.login .btn.big { width: 100%; }
+
 /* filters */
 .filters .cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 16px; margin-top: 8px; }
 .filters .cat-name { font-weight: 600; cursor: pointer; }

@@ -1,5 +1,6 @@
-// App state, persisted to the local server (falls back to localStorage if the server is unreachable).
+// App state. Persisted to the signed-in user's Supabase row (cloud), the local dev server, or this browser.
 import { uid, toast, todayKey } from './util.js';
+import { fetchCloud, pushCloud } from './auth.js';
 import { clozeNumbers } from './cloze.js';
 import { answer as srsAnswer, startOfDay, DAY } from './srs.js';
 
@@ -57,8 +58,12 @@ const defaults = () => ({
 });
 
 export let db = defaults();
-// 'server' (local dev), 'idb' (hosted), or 'local' (localStorage, if IndexedDB is unavailable)
+// 'cloud' (signed in), 'server' (local dev), 'idb' (this browser), or 'local' (localStorage fallback)
 export let storageMode = isLocalDev ? 'server' : 'idb';
+
+let userId = null;
+let lastSync = null; // updated_at of the cloud row we last loaded or wrote
+let dirty = false;   // unsaved local changes
 
 function merge(d) {
   const base = defaults();
@@ -73,7 +78,34 @@ function readLocalStorage() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch { return null; }
 }
 
-export async function loadDb() {
+const hasContent = (d) => d && ['decks', 'notes', 'saved', 'history'].some((k) => d[k]?.length);
+
+async function readBrowserData() {
+  try { return (await idbGet('db')) || readLocalStorage(); } catch { return readLocalStorage(); }
+}
+
+export async function loadDb(user = null) {
+  if (user) {
+    storageMode = 'cloud';
+    userId = user.id;
+    const row = await fetchCloud(userId);
+    if (row) {
+      db = merge(row.data || {});
+      lastSync = row.updated_at;
+    } else {
+      // First sign-in: move anything already saved in this browser into the new account, once.
+      const local = await readBrowserData();
+      db = merge(hasContent(local) ? local : {});
+      dirty = true;
+      await flush();
+      if (hasContent(local)) {
+        try { await idbSet('db', null); } catch {}
+        try { localStorage.removeItem(LS_KEY); } catch {}
+        toast('Moved the data saved in this browser into your account');
+      }
+    }
+    return;
+  }
   if (storageMode === 'server') {
     try {
       const r = await fetch('/api/db');
@@ -95,14 +127,49 @@ export async function loadDb() {
   navigator.storage?.persist?.().catch(() => {});
 }
 
-let timer;
-export function save() {
+export function resetDb() {
   clearTimeout(timer);
-  timer = setTimeout(flush, 300);
+  db = defaults();
+  userId = null;
+  lastSync = null;
+  dirty = false;
 }
 
+// Pull newer data saved from another device. Returns true if the local copy was replaced.
+export async function refreshFromCloud() {
+  if (storageMode !== 'cloud' || dirty || !userId) return false;
+  const row = await fetchCloud(userId);
+  if (!row || (lastSync && row.updated_at <= lastSync) || dirty) return false;
+  db = merge(row.data || {});
+  lastSync = row.updated_at;
+  return true;
+}
+
+let timer;
+export function save() {
+  dirty = true;
+  clearTimeout(timer);
+  timer = setTimeout(flush, storageMode === 'cloud' ? 1000 : 300);
+}
+
+let cloudFailed = false;
 export async function flush() {
   clearTimeout(timer);
+  if (storageMode === 'cloud') {
+    if (!dirty) return;
+    try {
+      dirty = false;
+      lastSync = await pushCloud(userId, JSON.parse(JSON.stringify(db)));
+      if (cloudFailed) { cloudFailed = false; toast('Back online — progress saved'); }
+    } catch {
+      dirty = true;
+      if (!cloudFailed) toast('Could not save to your account — will retry', 'error');
+      cloudFailed = true;
+      timer = setTimeout(flush, 15000);
+    }
+    return;
+  }
+  dirty = false;
   if (storageMode === 'idb') {
     try { await idbSet('db', JSON.parse(JSON.stringify(db))); return; }
     catch { storageMode = 'local'; }
@@ -119,6 +186,8 @@ export async function flush() {
     toast('Save failed — is the server running?', 'error');
   }
 }
+
+export const hasUnsaved = () => dirty;
 
 export function replaceDb(data) {
   db = merge(data);

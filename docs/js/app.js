@@ -3,7 +3,9 @@ import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal 
 import {
   db, loadDb, save, flush, replaceDb, createDeck, getDeck, deleteDeck, addNote, updateNote, deleteNote, getNote,
   deckCounts, nextCard, nextDueTime, gradeCard, undoGrade, reviewsToday, storageMode,
+  resetDb, refreshFromCloud, hasUnsaved,
 } from './store.js';
+import { authEnabled, currentUser, signIn, signUp, signOut, usernameOf } from './auth.js';
 import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js';
 import { previewLabels, fmtSpan } from './srs.js';
 import { deckSelect } from './convert.js';
@@ -67,9 +69,10 @@ function settingsPanel() {
       h('div', { class: 'row gap-s wrap' },
         h('button', { class: 'btn small', onClick: () => download(`qb-study-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(db)) }, 'Export everything (JSON)'),
         h('button', { class: 'btn small', onClick: () => fileInput.click() }, 'Restore from backup…'), fileInput),
-      h('p', { class: 'muted small' }, storageMode === 'server'
-        ? 'Data is saved to data/db.json next to the app, with a daily backup in data/backups/.'
-        : 'Your data is stored in this browser on this device only. Export a backup now and then — clearing site data or switching browsers starts fresh.')));
+      h('p', { class: 'muted small' }, {
+        cloud: 'Your progress is saved to your account and syncs across devices when you log in.',
+        server: 'Data is saved to data/db.json next to the app, with a daily backup in data/backups/.',
+      }[storageMode] ?? 'Your data is stored in this browser on this device only. Export a backup now and then — clearing site data or switching browsers starts fresh.')));
 }
 
 /* ================= Deck browser ================= */
@@ -312,9 +315,104 @@ document.addEventListener('keydown', (e) => {
   view?.onKey?.(e, typing);
 });
 
-window.addEventListener('hashchange', route);
-window.addEventListener('pagehide', () => flush());
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
+/* ================= Accounts ================= */
 
-await loadDb();
-route();
+let ready = false;
+
+function renderLogin(message = '') {
+  ready = false;
+  view?.cleanup?.();
+  view = null;
+  document.body.classList.add('logged-out');
+  $('#user-box').replaceChildren();
+  let mode = 'login';
+  const username = h('input', { class: 'input', autocomplete: 'username', placeholder: 'Username', autocapitalize: 'none', spellcheck: false });
+  const password = h('input', { class: 'input', type: 'password', autocomplete: 'current-password', placeholder: 'Password' });
+  const confirm = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', placeholder: 'Confirm password' });
+  const error = h('div', { class: 'warn small' }, message);
+  const submit = h('button', { class: 'btn primary big' });
+  const tabs = h('div', { class: 'segmented' });
+  const hint = h('p', { class: 'muted small' });
+
+  const paint = () => {
+    tabs.replaceChildren(...[['login', 'Log in'], ['signup', 'Create account']].map(([m, label]) =>
+      h('button', { type: 'button', class: `seg ${mode === m ? 'on' : ''}`, onClick: () => { mode = m; error.textContent = ''; paint(); } }, label)));
+    confirm.style.display = mode === 'signup' ? '' : 'none';
+    password.autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
+    submit.textContent = mode === 'signup' ? 'Create account' : 'Log in';
+    hint.textContent = mode === 'signup'
+      ? 'Usernames are 3–24 letters, numbers or _. No email needed — but that also means there is no password reset, so pick one you will remember.'
+      : 'Your decks, cards, saved questions and stats load on any device you log in from.';
+  };
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    error.textContent = '';
+    if (mode === 'signup' && password.value !== confirm.value) { error.textContent = 'Passwords do not match.'; return; }
+    submit.disabled = true;
+    submit.textContent = 'One moment…';
+    try {
+      const user = mode === 'signup' ? await signUp(username.value, password.value) : await signIn(username.value, password.value);
+      await startApp(user);
+    } catch (err) {
+      error.textContent = err.message;
+      submit.disabled = false;
+      paint();
+    }
+  };
+
+  main.replaceChildren(h('div', { class: 'login' },
+    h('h2', null, 'QB Study'),
+    h('p', { class: 'muted' }, 'Quiz bowl reader + cloze flashcards. Log in to keep your progress across devices.'),
+    tabs,
+    h('form', { class: 'stack', onSubmit }, username, password, confirm, error, submit),
+    hint));
+  paint();
+  username.focus();
+}
+
+async function startApp(user) {
+  if (user) {
+    main.replaceChildren(h('div', { class: 'empty muted' }, 'Loading your data…'));
+    try {
+      await loadDb(user);
+    } catch (err) {
+      return renderLogin(`Could not load your data: ${err.message}`);
+    }
+    $('#user-box').replaceChildren(
+      h('span', { class: 'muted small' }, usernameOf(user)),
+      h('button', { class: 'btn tiny ghost', onClick: logout }, 'Log out'));
+  } else {
+    await loadDb();
+  }
+  document.body.classList.remove('logged-out');
+  ready = true;
+  if (!location.hash || location.hash === '#/login') location.hash = '#/decks';
+  else route();
+}
+
+async function logout() {
+  await flush();
+  if (hasUnsaved() && !(await confirmDialog('Some changes have not reached the server yet. Log out anyway?', 'Log out'))) return;
+  await signOut();
+  resetDb();
+  renderLogin();
+}
+
+window.addEventListener('hashchange', () => { if (ready) route(); });
+window.addEventListener('pagehide', () => flush());
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'hidden') { flush(); return; }
+  if (!ready || storageMode !== 'cloud') return;
+  try {
+    if (await refreshFromCloud()) { toast('Loaded your latest progress from another device'); route(); }
+  } catch { /* offline: keep working locally */ }
+});
+
+if (authEnabled) {
+  const user = await currentUser().catch(() => null);
+  if (user) await startApp(user);
+  else renderLogin();
+} else {
+  await startApp(null);
+}

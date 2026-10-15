@@ -4,7 +4,18 @@ Quiz bowl practice reader plus Anki-style cloze flashcards, built on the [QB Rea
 
 ## Hosting
 
-The site in `docs/` is fully static and deploys with GitHub Pages (Settings → Pages → Deploy from branch → `main` / `/docs`). Every push to `main` updates the live site. On the hosted site, data is stored in the browser (IndexedDB); use **Settings & data → Export** for backups.
+The site in `docs/` is fully static and deploys with GitHub Pages (Settings → Pages → Deploy from branch → `main` / `/docs`). Every push to `main` updates the live site. When accounts are configured, each user's progress is saved to Supabase and syncs across devices; otherwise data is stored in the browser (IndexedDB).
+
+## Accounts & sync (Supabase)
+
+Logins and cross-device sync use a free [Supabase](https://supabase.com) project. Until `docs/js/config.js` is filled in, the app runs without accounts.
+
+1. Create a project at supabase.com (free tier).
+2. **SQL Editor → New query**: paste `supabase/schema.sql` and run it. This creates one private row of app data per user, protected by row-level security.
+3. **Authentication → Sign In / Providers → Email**: turn **off** “Confirm email”. (Usernames are mapped to placeholder addresses that are never emailed, so there is no password reset.)
+4. **Project Settings → API**: copy the Project URL and the `anon` public key into `docs/js/config.js`, then commit and push.
+
+Note: free Supabase projects pause after a week with no activity; restore it from the dashboard if that happens.
 
 ## Local development
 
