@@ -60,6 +60,16 @@ export async function changePassword(newPassword) {
   if (error) throw new Error(friendly(error));
 }
 
+/* ---------- realtime channels (multiplayer rooms: broadcast + presence, no tables) ---------- */
+
+export async function openChannel(name, config) {
+  return (await sb()).channel(name, { config });
+}
+
+export async function closeChannel(channel) {
+  if (channel) await (await sb()).removeChannel(channel);
+}
+
 /* ---------- recovery codes (see supabase/schema.sql) ---------- */
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I

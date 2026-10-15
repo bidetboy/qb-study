@@ -14,6 +14,7 @@ import { previewLabels, fmtSpan } from './srs.js';
 import { deckSelect } from './convert.js';
 import { renderReader } from './reader.js';
 import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js';
+import { renderPlay } from './multiplayer.js';
 import { initThemeToggle } from './theme.js';
 
 const main = $('#main');
@@ -309,6 +310,7 @@ const routes = [
     return renderEditor(el, { note });
   }],
   [/^#\/reader$/, (el) => renderReader(el)],
+  [/^#\/play(?:\/([^/]+))?$/, (el, code) => renderPlay(el, code)],
   [/^#\/search$/, (el) => renderSearch(el)],
   [/^#\/packets$/, (el) => renderPackets(el)],
   [/^#\/frequency$/, (el) => renderFrequency(el)],

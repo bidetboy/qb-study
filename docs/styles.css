@@ -254,6 +254,29 @@ body.logged-out .login .linkish { align-self: flex-start; padding: 0; }
 .keys { text-align: center; margin-top: 8px; }
 .bonus-part .input { flex: 1; }
 
+/* multiplayer */
+.room-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; color: var(--accent); }
+.mp { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; align-items: start; }
+.mp-stage { margin: 12px 0 0; }
+.mp-side { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.mp-side .panel { margin: 0; }
+.board-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+.board-table td { padding: 4px 0; border-bottom: 1px solid var(--border); }
+.board-table tr:last-child td { border-bottom: 0; }
+.board-table td.num { text-align: right; padding-left: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.board-table .pts { font-weight: 700; }
+.board-table .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); vertical-align: middle; }
+.board-table tr.offline { opacity: .5; }
+.board-table tr.offline .dot { background: var(--muted); }
+.mp-chat { display: flex; flex-direction: column; gap: 8px; }
+.mp-log { max-height: 280px; min-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; font-size: .9rem; overflow-wrap: anywhere; }
+.mp-chat .input { flex: 1; }
+.buzz-mark.neg { background: var(--bad-soft); }
+.live-answer { font-style: italic; }
+@media (max-width: 760px) {
+  .mp { grid-template-columns: 1fr; }
+}
+
 /* cloze */
 .cloze { color: var(--accent); font-weight: 700; }
 .cloze-mark { background: var(--accent-soft); color: var(--accent); border-radius: 4px; padding: 0 3px; }
