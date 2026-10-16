@@ -31,7 +31,7 @@ Then open http://localhost:5178. No dependencies; requires Node 18+. Locally, da
 
 ## Features
 
-- **Decks**: create decks, write cloze notes (`{{c1::answer}}`, `{{c1::answer::hint}}`), study with an SM-2 scheduler (Again/Hard/Good/Easy, undo, daily new-card limit).
+- **Decks**: create decks, write cloze notes (`{{c1::answer}}`, `{{c1::answer::hint}}`), study with an SM-2 scheduler (Again/Hard/Good/Easy, undo, daily new-card limit). A note can belong to several decks at once and keeps one review schedule; pick decks when adding, or select notes in a deck and use “Add to decks…”.
 - **Multiplayer**: live tossup rooms over Supabase Realtime (no tables needed). Create a room, share the link or code; everyone hears the same question, first buzz answers (15/10/−5, lockout after a miss, prompts), with a live scoreboard and chat. The room creator hosts (filters, speed, skip); if the host leaves, another player takes over. Players can set a display name (defaults to their username).
 - **Reader**: word-by-word tossups with buzzing, power/neg scoring, answer judging via `/check-answer` (directed prompts, offline fallback, override); bonuses part by part; category/difficulty/year filters.
 - **Make cards** from any QB Reader question: one card per clue, whole question, per bonus part, or cloze it yourself.

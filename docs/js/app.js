@@ -1,21 +1,22 @@
 // Entry point: router + deck management, card editor, and study (review) screen.
-import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=232d3239';
+import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=5da9d5ed';
 import {
   db, loadDb, save, flush, replaceDb, createDeck, getDeck, deleteDeck, addNote, updateNote, deleteNote, getNote,
+  deckIdsOf, notesInDeck, addNotesToDecks, removeNoteFromDeck,
   deckCounts, nextCard, nextDueTime, gradeCard, undoGrade, reviewsToday, storageMode,
   resetDb, refreshFromCloud, hasUnsaved,
-} from './store.js?v=232d3239';
+} from './store.js?v=5da9d5ed';
 import {
   authEnabled, currentUser, signIn, signUp, signOut, usernameOf, changePassword,
   generateRecoveryCode, setRecoveryCode, hasRecoveryCode, resetPassword,
-} from './auth.js?v=232d3239';
-import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=232d3239';
-import { previewLabels, fmtSpan } from './srs.js?v=232d3239';
-import { deckSelect } from './convert.js?v=232d3239';
-import { renderReader } from './reader.js?v=232d3239';
-import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=232d3239';
-import { renderPlay } from './multiplayer.js?v=232d3239';
-import { initThemeToggle } from './theme.js?v=232d3239';
+} from './auth.js?v=5da9d5ed';
+import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=5da9d5ed';
+import { previewLabels, fmtSpan } from './srs.js?v=5da9d5ed';
+import { deckPicker, pickDecks, deckNames } from './convert.js?v=5da9d5ed';
+import { renderReader } from './reader.js?v=5da9d5ed';
+import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=5da9d5ed';
+import { renderPlay } from './multiplayer.js?v=5da9d5ed';
+import { initThemeToggle } from './theme.js?v=5da9d5ed';
 
 const main = $('#main');
 initThemeToggle($('#theme-toggle'));
@@ -121,18 +122,60 @@ function renderDeck(el, id) {
     });
   };
 
+  const selected = new Set();
+  const bulk = h('div');
+  const shown = () => notesInDeck(id).filter((n) => !filter || (n.text + ' ' + n.extra).toLowerCase().includes(filter.toLowerCase()));
+
+  const removeOrDelete = async (notes) => {
+    const deleting = notes.filter((n) => deckIdsOf(n).length === 1).length;
+    if (deleting && !(await confirmDialog(deleting === notes.length
+      ? `Delete ${notes.length === 1 ? 'this note' : `these ${notes.length} notes`} and ${notes.length === 1 ? 'its' : 'their'} cards?`
+      : `${deleting} of these notes are only in this deck and will be deleted with their cards. The rest stay in their other decks.`))) return;
+    notes.forEach((n) => { removeNoteFromDeck(n, id); selected.delete(n.id); });
+    paint();
+  };
+
+  const paintBulk = () => {
+    const notes = shown();
+    const allOn = notes.length > 0 && notes.every((n) => selected.has(n.id));
+    const chosen = db.notes.filter((n) => selected.has(n.id));
+    const all = h('input', { type: 'checkbox', checked: allOn, onChange: (e) => { notes.forEach((n) => selected[e.target.checked ? 'add' : 'delete'](n.id)); paint(); } });
+    all.indeterminate = !allOn && notes.some((n) => selected.has(n.id));
+    bulk.replaceChildren(notes.length ? h('div', { class: 'row wrap gap-s bulk-bar' },
+      h('label', { class: 'row gap-s' }, all, chosen.length ? `${chosen.length} selected` : 'Select all'),
+      chosen.length > 0 && [
+        h('button', { class: 'btn tiny', onClick: async () => {
+          const ids = await pickDecks(`Add ${chosen.length} note${chosen.length === 1 ? '' : 's'} to…`, [], 'Add');
+          if (!ids) return;
+          addNotesToDecks(chosen, ids);
+          toast(`Added to ${deckNames(ids)}`);
+          paint();
+        } }, 'Add to decks…'),
+        h('button', { class: 'btn tiny ghost', onClick: () => removeOrDelete(chosen) }, 'Remove from this deck'),
+        h('button', { class: 'btn tiny ghost', onClick: () => { selected.clear(); paint(); } }, 'Clear')]) : null);
+  };
+
   const paint = () => {
-    const notes = db.notes.filter((n) => n.deckId === id && (!filter || (n.text + ' ' + n.extra).toLowerCase().includes(filter.toLowerCase())))
-      .sort((a, b) => b.created - a.created);
+    const notes = shown().sort((a, b) => b.created - a.created);
+    paintBulk();
     list.replaceChildren(notes.length
-      ? h('div', { class: 'note-list' }, notes.map((n) => h('div', { class: 'note-row' },
-          h('div', { class: 'grow' },
-            h('div', { class: 'note-text', html: renderCloze(n.text, 0, 'preview') }),
-            h('div', { class: 'row wrap gap-s small' }, cardInfo(n),
-              n.source && h('span', { class: 'muted' }, `from ${n.source.set ?? 'QB Reader'}${n.source.packet != null ? ` P${n.source.packet}` : ''}`))),
-          h('div', { class: 'row gap-s' },
-            h('button', { class: 'btn tiny', onClick: () => (location.hash = `#/edit/${n.id}`) }, 'Edit'),
-            h('button', { class: 'btn tiny ghost', onClick: async () => { if (await confirmDialog('Delete this note and its cards?')) { deleteNote(n.id); paint(); } } }, 'Delete')))))
+      ? h('div', { class: 'note-list' }, notes.map((n) => {
+          const others = deckIdsOf(n).filter((x) => x !== id);
+          return h('div', { class: 'note-row' },
+            h('input', { type: 'checkbox', class: 'note-check', checked: selected.has(n.id), onChange: (e) => { selected[e.target.checked ? 'add' : 'delete'](n.id); paintBulk(); } }),
+            h('div', { class: 'grow' },
+              h('div', { class: 'note-text', html: renderCloze(n.text, 0, 'preview') }),
+              h('div', { class: 'row wrap gap-s small' }, cardInfo(n),
+                others.length > 0 && h('span', { class: 'muted' }, `also in ${deckNames(others)}`),
+                n.source && h('span', { class: 'muted' }, `from ${n.source.set ?? 'QB Reader'}${n.source.packet != null ? ` P${n.source.packet}` : ''}`))),
+            h('div', { class: 'row gap-s' },
+              h('button', { class: 'btn tiny', onClick: () => (location.hash = `#/edit/${n.id}`) }, 'Edit'),
+              h('button', { class: 'btn tiny', onClick: async () => {
+                const ids = await pickDecks('Decks for this note', deckIdsOf(n));
+                if (ids) { updateNote(n, { deckIds: ids }); paint(); }
+              } }, 'Decks…'),
+              h('button', { class: 'btn tiny ghost', onClick: () => removeOrDelete([n]) }, others.length ? 'Remove' : 'Delete')));
+        }))
       : h('div', { class: 'empty muted' }, filter ? 'No notes match.' : 'No cards yet.'));
   };
 
@@ -144,10 +187,10 @@ function renderDeck(el, id) {
         h('button', { class: 'btn primary', disabled: !(c.new + c.learn + c.review), onClick: () => (location.hash = `#/study/${id}`) }, 'Study'),
         h('button', { class: 'btn', onClick: () => (location.hash = `#/add/${id}`) }, '＋ Add card'),
         h('button', { class: 'btn ghost', onClick: async () => { const name = await promptDialog('Rename deck', deck.name); if (name) { deck.name = name; save(); route(); } } }, 'Rename'),
-        h('button', { class: 'btn ghost', onClick: () => download(`${deck.name}.json`, JSON.stringify({ deck, notes: db.notes.filter((n) => n.deckId === id) }, null, 2)) }, 'Export'),
-        h('button', { class: 'btn ghost danger', onClick: async () => { if (await confirmDialog(`Delete “${deck.name}” and all its cards?`)) { deleteDeck(id); location.hash = '#/decks'; } } }, 'Delete'))),
+        h('button', { class: 'btn ghost', onClick: () => download(`${deck.name}.json`, JSON.stringify({ deck, notes: notesInDeck(id) }, null, 2)) }, 'Export'),
+        h('button', { class: 'btn ghost danger', onClick: async () => { if (await confirmDialog(`Delete “${deck.name}” and all its cards? Notes that are also in other decks stay there.`)) { deleteDeck(id); location.hash = '#/decks'; } } }, 'Delete'))),
     h('input', { class: 'input', placeholder: 'Search notes in this deck…', onInput: (e) => { filter = e.target.value; paint(); } }),
-    list);
+    bulk, list);
   paint();
 }
 
@@ -155,7 +198,7 @@ function renderDeck(el, id) {
 
 function renderEditor(el, { note = null, deckId = null }) {
   const isEdit = !!note;
-  const deckSel = deckSelect(note?.deckId ?? deckId ?? db.decks[0]?.id);
+  const decks = deckPicker(note ? deckIdsOf(note) : [deckId ?? db.decks[0]?.id]);
   const text = h('textarea', { class: 'input mono', rows: 6, placeholder: 'e.g. The {{c1::Treaty of Westphalia}} ended the {{c2::Thirty Years’ War}} in {{c3::1648}}.', value: note?.text ?? '' });
   const extra = h('textarea', { class: 'input', rows: 3, placeholder: 'Optional extra info shown on the back', value: note?.extra ?? '' });
   const preview = h('div', { class: 'preview' });
@@ -170,14 +213,14 @@ function renderEditor(el, { note = null, deckId = null }) {
   sync();
 
   const submit = () => {
-    if (!db.decks.length || !deckSel.value || deckSel.value === '__new') return toast('Create a deck first', 'error');
+    if (!decks.value.length) return toast('Pick or create a deck first', 'error');
     if (!clozeNumbers(text.value).length) return toast('Add at least one cloze deletion', 'error');
     if (isEdit) {
-      updateNote(note, { text: text.value.trim(), extra: extra.value.trim(), deckId: deckSel.value });
+      updateNote(note, { text: text.value.trim(), extra: extra.value.trim(), deckIds: decks.value });
       toast('Saved');
       history.back();
     } else {
-      addNote({ deckId: deckSel.value, text: text.value.trim(), extra: extra.value.trim() });
+      addNote({ deckIds: decks.value, text: text.value.trim(), extra: extra.value.trim() });
       toast('Added');
       text.value = '';
       extra.value = '';
@@ -190,7 +233,7 @@ function renderEditor(el, { note = null, deckId = null }) {
     h('a', { href: isEdit ? `#/deck/${note.deckId}` : (deckId ? `#/deck/${deckId}` : '#/decks'), class: 'muted small' }, '‹ Back'),
     h('h2', null, isEdit ? 'Edit note' : 'Add cloze note'),
     h('div', { class: 'stack' },
-      h('label', { class: 'row gap-s' }, 'Deck', deckSel),
+      h('div', { class: 'row gap-s wrap' }, h('span', null, 'Decks'), decks.el),
       h('div', { class: 'row wrap gap-s' },
         h('button', { class: 'btn small', onClick: () => wrapSelection(text) }, '[…] Cloze', h('kbd', null, 'Alt C')),
         h('button', { class: 'btn small', onClick: () => wrapSelection(text, true) }, '[…] Same number', h('kbd', null, 'Alt ⇧ C')),

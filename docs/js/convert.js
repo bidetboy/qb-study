@@ -1,8 +1,8 @@
 // Turn QB Reader questions into cloze notes.
-import { h, modal, toast, htmlToText, promptDialog } from './util.js?v=232d3239';
-import { db, save as saveDb, addNote, createDeck } from './store.js?v=232d3239';
-import { clozeNumbers, wrapSelection, clozeKeyHandler, renderCloze } from './cloze.js?v=232d3239';
-import { mainAnswer, qMeta } from './qview.js?v=232d3239';
+import { h, modal, toast, htmlToText, promptDialog } from './util.js?v=5da9d5ed';
+import { db, save as saveDb, addNote, createDeck } from './store.js?v=5da9d5ed';
+import { clozeNumbers, wrapSelection, clozeKeyHandler, renderCloze } from './cloze.js?v=5da9d5ed';
+import { mainAnswer, qMeta } from './qview.js?v=5da9d5ed';
 
 const ABBREV = /(?:\b(?:St|Mr|Mrs|Ms|Dr|Jr|Sr|vs|ca|No|Mt|Ft|Gen|Col|Lt|Sgt|Rev|Op|Vol|ed|U\.S|e\.g|i\.e|cf|al)|\b[A-Z])\.$/;
 
@@ -54,20 +54,43 @@ function bonusResults(q, given) {
   return null;
 }
 
-export function deckSelect(selectedId) {
-  const sel = h('select', { class: 'input' },
-    db.decks.map((d) => h('option', { value: d.id, selected: d.id === selectedId }, d.name)),
-    h('option', { value: '__new' }, '＋ New deck…'));
-  sel.addEventListener('change', async () => {
-    if (sel.value !== '__new') return;
-    const name = await promptDialog('New deck name', '', 'Create');
-    if (!name) { sel.value = db.decks[0]?.id ?? ''; return; }
-    const d = createDeck(name);
-    sel.insertBefore(h('option', { value: d.id }, d.name), sel.lastChild);
-    sel.value = d.id;
-  });
-  return sel;
+// Checkbox chips for choosing one or more decks, with a button to make a new one.
+export function deckPicker(selectedIds = []) {
+  const chosen = new Set(selectedIds);
+  const el = h('div', { class: 'deck-picker' });
+  const paint = () => el.replaceChildren(
+    ...db.decks.map((d) => h('label', { class: `deck-chip${chosen.has(d.id) ? ' on' : ''}` },
+      h('input', { type: 'checkbox', checked: chosen.has(d.id), onChange: (e) => { chosen[e.target.checked ? 'add' : 'delete'](d.id); paint(); } }),
+      d.name)),
+    h('button', { type: 'button', class: 'btn tiny ghost', onClick: async () => {
+      const name = await promptDialog('New deck name', '', 'Create');
+      if (!name) return;
+      chosen.add(createDeck(name).id);
+      paint();
+    } }, '＋ New deck'));
+  paint();
+  return { el, get value() { return db.decks.map((d) => d.id).filter((id) => chosen.has(id)); } };
 }
+
+// Ask for a set of decks. Resolves to the chosen deck ids, or null if cancelled.
+export function pickDecks(title, selectedIds = [], okLabel = 'Save') {
+  return new Promise((resolve) => {
+    let done = false;
+    const picker = deckPicker(selectedIds);
+    const finish = (v) => { if (!done) { done = true; resolve(v); m.close(); } };
+    const m = modal(title, h('div', { class: 'stack' },
+      picker.el,
+      h('div', { class: 'row end gap-s' },
+        h('button', { class: 'btn', onClick: () => finish(null) }, 'Cancel'),
+        h('button', { class: 'btn primary', onClick: () => {
+          if (!picker.value.length) return toast('Pick at least one deck', 'error');
+          finish(picker.value);
+        } }, okLabel))),
+      { onClose: () => { if (!done) { done = true; resolve(null); } } });
+  });
+}
+
+export const deckNames = (ids) => ids.map((id) => db.decks.find((d) => d.id === id)?.name).filter(Boolean).join(', ');
 
 export function openConverter(q, type, { results = null } = {}) {
   const strats = strategies(q, type);
@@ -78,8 +101,8 @@ export function openConverter(q, type, { results = null } = {}) {
   let drafts = [];
   let lastFocused = null;
 
-  const savedDeck = db.decks.some((d) => d.id === prefs.deckId) ? prefs.deckId : db.decks[0]?.id;
-  const deckSel = deckSelect(savedDeck);
+  const remembered = (prefs.deckIds || [prefs.deckId]).filter((id) => db.decks.some((d) => d.id === id));
+  const decks = deckPicker(remembered.length ? remembered : [db.decks[0]?.id]);
   const list = h('div', { class: 'drafts' });
   const extra = h('textarea', { class: 'input', rows: 2, value: extraDefault });
   const count = h('span', { class: 'muted' });
@@ -149,14 +172,15 @@ export function openConverter(q, type, { results = null } = {}) {
   }
 
   const save = () => {
-    const deckId = deckSel.value;
-    if (!deckId || deckId === '__new') return toast('Pick or create a deck first', 'error');
+    const deckIds = decks.value;
+    if (!deckIds.length) return toast('Pick or create a deck first', 'error');
     const chosen = drafts.filter((d) => d.include && clozeNumbers(d.text).length);
     if (!chosen.length) return toast('Nothing to add — each card needs at least one cloze', 'error');
-    for (const d of chosen) addNote({ deckId, text: d.text.trim(), extra: extra.value.trim(), source: sourceOf(q, type) });
-    prefs.deckId = deckId;
+    for (const d of chosen) addNote({ deckIds, text: d.text.trim(), extra: extra.value.trim(), source: sourceOf(q, type) });
+    prefs.deckIds = deckIds;
+    delete prefs.deckId;
     saveDb();
-    toast(`Added ${chosen.length} note${chosen.length === 1 ? '' : 's'} to ${db.decks.find((x) => x.id === deckId)?.name}`);
+    toast(`Added ${chosen.length} note${chosen.length === 1 ? '' : 's'} to ${deckNames(deckIds)}`);
     m.close();
   };
 
@@ -173,8 +197,8 @@ export function openConverter(q, type, { results = null } = {}) {
     list,
     h('label', { class: 'field' }, h('span', null, 'Back extra (shown after reveal)'), extra),
     h('div', { class: 'row between wrap' },
-      h('label', { class: 'row gap-s' }, h('span', null, 'Deck'), deckSel),
-      h('div', { class: 'row gap-s' }, count, h('button', { class: 'btn primary', onClick: save }, 'Add to deck'))));
+      h('div', { class: 'row gap-s wrap' }, h('span', null, 'Decks'), decks.el),
+      h('div', { class: 'row gap-s' }, count, h('button', { class: 'btn primary', onClick: save }, 'Add to decks'))));
 
   const m = modal('Make cloze cards', body, { wide: true });
   use(strats[templates[type]] ? templates[type] : Object.keys(strats)[0]);

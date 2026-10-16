@@ -206,6 +206,13 @@ body.logged-out .login .linkish { align-self: flex-start; padding: 0; }
 .recovery-code { font: 600 1.4rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; text-align: center; padding: 14px; border: 1px dashed var(--accent); border-radius: 10px; background: var(--accent-soft); color: var(--accent); user-select: all; }
 .account-box { padding-bottom: 12px; border-bottom: 1px solid var(--border); }
 
+/* deck picker & bulk note actions */
+.deck-picker { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.deck-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: .88rem; cursor: pointer; }
+.deck-chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.bulk-bar { margin: 10px 0 4px; font-size: .9rem; }
+.note-row .note-check { margin-top: 4px; flex: none; }
+
 /* filters */
 .filters .cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 16px; margin-top: 8px; }
 .filters .cat-name { font-weight: 600; cursor: pointer; }

@@ -1,8 +1,8 @@
 // App state. Persisted to the signed-in user's Supabase row (cloud), the local dev server, or this browser.
-import { uid, toast, todayKey } from './util.js?v=232d3239';
-import { fetchCloud, pushCloud } from './auth.js?v=232d3239';
-import { clozeNumbers } from './cloze.js?v=232d3239';
-import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=232d3239';
+import { uid, toast, todayKey } from './util.js?v=5da9d5ed';
+import { fetchCloud, pushCloud } from './auth.js?v=5da9d5ed';
+import { clozeNumbers } from './cloze.js?v=5da9d5ed';
+import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=5da9d5ed';
 
 const LS_KEY = 'qbstudy-db';
 const IDB_NAME = 'qbstudy';
@@ -65,8 +65,14 @@ let userId = null;
 let lastSync = null; // updated_at of the cloud row we last loaded or wrote
 let dirty = false;   // unsaved local changes
 
+// A note can live in several decks. `deckIds` is the source of truth; `deckId` mirrors the
+// first one so data written by older cached clients still loads.
+export const deckIdsOf = (n) => (n.deckIds?.length ? n.deckIds : n.deckId ? [n.deckId] : []);
+const setDecks = (n, ids) => { n.deckIds = [...new Set(ids)]; n.deckId = n.deckIds[0]; };
+
 function merge(d) {
   const base = defaults();
+  for (const n of d.notes || []) setDecks(n, deckIdsOf(n));
   return {
     ...base,
     ...d,
@@ -205,24 +211,33 @@ export function createDeck(name) {
 
 export function getDeck(id) { return db.decks.find((d) => d.id === id); }
 
+// Notes only in this deck are deleted; notes also in other decks just leave it.
 export function deleteDeck(id) {
-  const noteIds = new Set(db.notes.filter((n) => n.deckId === id).map((n) => n.id));
+  const noteIds = new Set();
+  for (const n of db.notes) {
+    const ids = deckIdsOf(n);
+    if (!ids.includes(id)) continue;
+    if (ids.length === 1) noteIds.add(n.id);
+    else setDecks(n, ids.filter((x) => x !== id));
+  }
   db.decks = db.decks.filter((d) => d.id !== id);
   db.notes = db.notes.filter((n) => !noteIds.has(n.id));
   db.cards = db.cards.filter((c) => !noteIds.has(c.noteId));
   save();
 }
 
-export function addNote({ deckId, text, extra = '', source = null }) {
-  const n = { id: uid(), deckId, text, extra, source, created: Date.now(), modified: Date.now() };
+export function addNote({ deckIds, text, extra = '', source = null }) {
+  const n = { id: uid(), text, extra, source, created: Date.now(), modified: Date.now() };
+  setDecks(n, deckIds);
   db.notes.push(n);
   syncCards(n);
   save();
   return n;
 }
 
-export function updateNote(note, patch) {
+export function updateNote(note, { deckIds, ...patch }) {
   Object.assign(note, patch, { modified: Date.now() });
+  if (deckIds) setDecks(note, deckIds);
   syncCards(note);
   save();
 }
@@ -234,6 +249,22 @@ export function deleteNote(id) {
 }
 
 export function getNote(id) { return db.notes.find((n) => n.id === id); }
+
+export const notesInDeck = (deckId) => db.notes.filter((n) => deckIdsOf(n).includes(deckId));
+
+// Add notes to more decks without touching their review progress.
+export function addNotesToDecks(notes, deckIds) {
+  for (const n of notes) setDecks(n, [...deckIdsOf(n), ...deckIds]);
+  save();
+}
+
+// Take a note out of one deck; a note left in no deck is deleted with its cards.
+export function removeNoteFromDeck(note, deckId) {
+  const rest = deckIdsOf(note).filter((x) => x !== deckId);
+  if (!rest.length) return deleteNote(note.id);
+  setDecks(note, rest);
+  save();
+}
 
 function syncCards(note) {
   const nums = clozeNumbers(note.text);
@@ -249,13 +280,15 @@ function syncCards(note) {
 
 function noteDeckMap() {
   const m = new Map();
-  for (const n of db.notes) m.set(n.id, n.deckId);
+  for (const n of db.notes) m.set(n.id, deckIdsOf(n));
   return m;
 }
 
+// Each card once, with the decks whose new-card allowance it can draw on.
 function cardsIn(deckId) {
   const m = noteDeckMap();
-  return db.cards.filter((c) => deckId === 'all' || m.get(c.noteId) === deckId).map((c) => ({ c, deck: m.get(c.noteId) }));
+  return db.cards.filter((c) => deckId === 'all' || m.get(c.noteId)?.includes(deckId))
+    .map((c) => ({ c, decks: deckId === 'all' ? m.get(c.noteId) || [] : [deckId] }));
 }
 
 function newLeft(deckId) {
@@ -269,10 +302,13 @@ export function deckCounts(deckId, now = Date.now()) {
   const list = cardsIn(deckId);
   const learn = list.filter(({ c }) => isLearning(c) && c.due <= now).length;
   const review = list.filter(({ c }) => c.state === 'review' && c.due <= now).length;
-  const newByDeck = {};
-  for (const { c, deck } of list) if (c.state === 'new') newByDeck[deck] = (newByDeck[deck] || 0) + 1;
+  const left = {};
   let fresh = 0;
-  for (const [deck, count] of Object.entries(newByDeck)) fresh += Math.min(count, newLeft(deck));
+  for (const { c, decks } of list) {
+    if (c.state !== 'new') continue;
+    const d = decks.find((x) => (left[x] ??= newLeft(x)) > 0);
+    if (d) { left[d]--; fresh++; }
+  }
   return { new: fresh, learn, review, total: list.length };
 }
 
@@ -283,7 +319,7 @@ export function nextCard(deckId, now = Date.now()) {
   const learn = list.filter(({ c }) => isLearning(c) && c.due <= now).sort(byDue);
   if (learn.length) return learn[0].c;
   const rev = list.filter(({ c }) => c.state === 'review' && c.due <= now).sort(byDue);
-  const fresh = list.filter(({ c, deck }) => c.state === 'new' && newLeft(deck) > 0).sort((a, b) => a.c.created - b.c.created);
+  const fresh = list.filter(({ c, decks }) => c.state === 'new' && decks.some((d) => newLeft(d) > 0)).sort((a, b) => a.c.created - b.c.created);
   sessionCounter++;
   if (fresh.length && (!rev.length || sessionCounter % 4 === 0)) return fresh[0].c;
   if (rev.length) return rev[0].c;
@@ -301,9 +337,9 @@ export function gradeCard(cardId, grade) {
   if (i < 0) return null;
   const before = db.cards[i];
   if (before.state === 'new') {
-    const deckId = getNote(before.noteId)?.deckId;
+    // A new card uses up a slot in every deck it belongs to.
     const day = (db.dayLog[todayKey()] ||= {});
-    day[deckId] = (day[deckId] || 0) + 1;
+    for (const d of deckIdsOf(getNote(before.noteId) || {})) day[d] = (day[d] || 0) + 1;
   }
   db.cards[i] = srsAnswer(before, grade);
   db.reviewLog = db.reviewLog || [];
@@ -317,9 +353,8 @@ export function undoGrade(before) {
   const i = db.cards.findIndex((c) => c.id === before.id);
   if (i < 0) return;
   if (before.state === 'new') {
-    const deckId = getNote(before.noteId)?.deckId;
     const day = db.dayLog[todayKey()];
-    if (day?.[deckId]) day[deckId]--;
+    for (const d of deckIdsOf(getNote(before.noteId) || {})) if (day?.[d]) day[d]--;
   }
   db.cards[i] = before;
   db.reviewLog?.pop();
