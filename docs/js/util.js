@@ -154,6 +154,21 @@ export const CATEGORIES = {
   'Pop Culture': ['Movies', 'Music', 'Sports', 'Television', 'Video Games', 'Other Pop Culture'],
 };
 
+// QB Reader's finer "alternate subcategories", keyed by the subcategory they split up.
+// Literature genres are keyed by the category since they cut across every literature subcategory.
+export const ALT_SUBCATEGORIES = {
+  'Literature': ['Drama', 'Long Fiction', 'Poetry', 'Short Fiction', 'Misc Literature'],
+  'Other Science': ['Math', 'Astronomy', 'Computer Science', 'Earth Science', 'Engineering', 'Misc Science'],
+  'Other Fine Arts': ['Architecture', 'Dance', 'Film', 'Jazz', 'Musicals', 'Opera', 'Photography', 'Misc Arts'],
+  'Social Science': ['Anthropology', 'Economics', 'Linguistics', 'Psychology', 'Sociology', 'Other Social Science'],
+};
+
+// The subcategory (or, for literature genres, category) an alternate subcategory belongs to.
+export function altParent(alt) {
+  for (const [parent, alts] of Object.entries(ALT_SUBCATEGORIES)) if (alts.includes(alt)) return parent;
+  return null;
+}
+
 // What each QB Reader difficulty level means, with typical tournaments at that level.
 export const DIFFICULTY_INFO = {
   1: 'Very accessible clues and famous answers. Middle school tournaments (e.g. MSNCT).',

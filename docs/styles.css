@@ -211,6 +211,9 @@ body.logged-out .login .linkish { align-self: flex-start; padding: 0; }
 .filters .cat-name { font-weight: 600; cursor: pointer; }
 .filters .subs { display: flex; flex-direction: column; margin: 2px 0 0 20px; }
 .filters .sub { font-size: .88rem; color: var(--muted); cursor: pointer; }
+.filters .subs .alts { margin-left: 18px; }
+.filters .alts .sub { font-size: .82rem; }
+.filters .alt-label { margin-top: 6px; font-size: .68rem; }
 
 /* difficulty picker */
 .diff-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px 20px; margin-top: 6px; }

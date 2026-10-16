@@ -37,19 +37,27 @@ export const api = {
 
 // Turn the shared filter object into API params.
 export function filterParams(f = {}) {
-  const subs = f.subcategories || [];
-  const cats = [...new Set(subs.map((s) => categoryOf(s)).filter(Boolean))];
+  const subs = [...(f.subcategories || [])];
+  const alts = f.alternateSubcategories || [];
+  // A finer pick like "Math" only matches if its parent ("Other Science") is also requested.
+  for (const a of alts) {
+    const parent = altParent(a);
+    if (Object.values(CATEGORIES).flat().includes(parent) && !subs.includes(parent)) subs.push(parent);
+  }
+  const cats = [...new Set([...subs.map((s) => categoryOf(s)), ...alts.map((a) => categoryOf(altParent(a)))].filter(Boolean))];
   return {
     categories: cats,
     subcategories: subs,
+    alternateSubcategories: alts,
     difficulties: f.difficulties || [],
     minYear: f.minYear || undefined,
     maxYear: f.maxYear || undefined,
   };
 }
 
-import { CATEGORIES } from './util.js?v=f0eb06de';
+import { CATEGORIES, altParent } from './util.js?v=232d3239';
 export function categoryOf(sub) {
+  if (CATEGORIES[sub]) return sub;
   for (const [cat, subs] of Object.entries(CATEGORIES)) if (subs.includes(sub)) return cat;
   return null;
 }

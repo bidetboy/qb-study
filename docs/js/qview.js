@@ -1,14 +1,14 @@
 // Shared rendering for API questions: cards, metadata, stats, and actions.
-import { h, sanitizeHtml, toast, DIFFICULTIES } from './util.js?v=f0eb06de';
-import { api } from './api.js?v=f0eb06de';
-import { isSaved, toggleSaved } from './store.js?v=f0eb06de';
+import { h, sanitizeHtml, toast, DIFFICULTIES } from './util.js?v=232d3239';
+import { api } from './api.js?v=232d3239';
+import { isSaved, toggleSaved } from './store.js?v=232d3239';
 
 export function qMeta(q) {
   const bits = [
     q.set?.name,
     q.packet?.number != null ? `Packet ${q.packet.number}` : null,
     q.number != null ? `#${q.number}` : null,
-    [q.category, q.subcategory].filter(Boolean).join(' / '),
+    [q.category, q.subcategory, q.alternate_subcategory].filter(Boolean).join(' / '),
     q.difficulty != null ? `Diff ${q.difficulty}${DIFFICULTIES[q.difficulty] ? ` (${DIFFICULTIES[q.difficulty]})` : ''}` : null,
   ];
   return bits.filter(Boolean).join(' · ');

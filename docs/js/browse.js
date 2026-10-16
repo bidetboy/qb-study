@@ -1,11 +1,11 @@
 // Search (query + lookup by ID), Packets, Frequency lists, Saved questions, and Stats.
-import { h, toast, confirmDialog, download, fmtDate, CATEGORIES, shuffle } from './util.js?v=f0eb06de';
-import { api, filterParams } from './api.js?v=f0eb06de';
-import { db, save } from './store.js?v=f0eb06de';
-import { questionCard } from './qview.js?v=f0eb06de';
-import { openConverter } from './convert.js?v=f0eb06de';
-import { startReader } from './reader.js?v=f0eb06de';
-import { filterPanel, difficultyChips } from './filters.js?v=f0eb06de';
+import { h, toast, confirmDialog, download, fmtDate, CATEGORIES, ALT_SUBCATEGORIES, shuffle } from './util.js?v=232d3239';
+import { api, filterParams } from './api.js?v=232d3239';
+import { db, save } from './store.js?v=232d3239';
+import { questionCard } from './qview.js?v=232d3239';
+import { openConverter } from './convert.js?v=232d3239';
+import { startReader } from './reader.js?v=232d3239';
+import { filterPanel, difficultyChips } from './filters.js?v=232d3239';
 
 const practice = (q, type) => startReader({ type, questions: [q], label: 'Single question' });
 const cardActions = { cards: openConverter, practice };
@@ -220,7 +220,7 @@ export function renderPackets(main) {
 
 /* ================= Frequency list ================= */
 
-const F = { level: 'subcategory', category: 'Literature', subcategory: 'American Literature', questionType: 'all', limit: 50, difficulties: [], list: null, error: '' };
+const F = { level: 'subcategory', category: 'Literature', subcategory: 'American Literature', alternateSubcategory: 'Drama', questionType: 'all', limit: 50, difficulties: [], list: null, error: '' };
 
 export function renderFrequency(main) {
   const out = h('div');
@@ -228,7 +228,9 @@ export function renderFrequency(main) {
   const fill = () => {
     catSel.replaceChildren(...(F.level === 'category'
       ? Object.keys(CATEGORIES).map((c) => h('option', { value: c, selected: c === F.category }, c))
-      : Object.entries(CATEGORIES).map(([c, subs]) => h('optgroup', { label: c }, subs.map((s) => h('option', { value: s, selected: s === F.subcategory }, s))))));
+      : F.level === 'alternateSubcategory'
+        ? Object.entries(ALT_SUBCATEGORIES).map(([p, alts]) => h('optgroup', { label: p }, alts.map((a) => h('option', { value: a, selected: a === F.alternateSubcategory }, a))))
+        : Object.entries(CATEGORIES).map(([c, subs]) => h('optgroup', { label: c }, subs.map((s) => h('option', { value: s, selected: s === F.subcategory }, s))))));
   };
   catSel.addEventListener('change', () => { F[F.level] = catSel.value; });
   fill();
@@ -279,7 +281,8 @@ export function renderFrequency(main) {
       h('div', { class: 'row wrap gap-s' },
         h('select', { class: 'input', onChange: (e) => { F.level = e.target.value; fill(); } },
           h('option', { value: 'subcategory', selected: F.level === 'subcategory' }, 'By subcategory'),
-          h('option', { value: 'category', selected: F.level === 'category' }, 'By category')),
+          h('option', { value: 'category', selected: F.level === 'category' }, 'By category'),
+          h('option', { value: 'alternateSubcategory', selected: F.level === 'alternateSubcategory' }, 'By finer subcategory')),
         catSel,
         h('select', { class: 'input', onChange: (e) => (F.questionType = e.target.value) },
           [['all', 'Tossups & bonuses'], ['tossup', 'Tossups'], ['bonus', 'Bonuses']].map(([v, l]) => h('option', { value: v, selected: F.questionType === v }, l))),
