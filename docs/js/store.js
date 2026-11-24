@@ -1,8 +1,8 @@
 // App state. Persisted to the signed-in user's Supabase row (cloud), the local dev server, or this browser.
-import { uid, toast, todayKey } from './util.js?v=5da9d5ed';
-import { fetchCloud, pushCloud } from './auth.js?v=5da9d5ed';
-import { clozeNumbers } from './cloze.js?v=5da9d5ed';
-import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=5da9d5ed';
+import { uid, toast, todayKey } from './util.js?v=731c113d';
+import { fetchCloud, pushCloud } from './auth.js?v=731c113d';
+import { clozeNumbers } from './cloze.js?v=731c113d';
+import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=731c113d';
 
 const LS_KEY = 'qbstudy-db';
 const IDB_NAME = 'qbstudy';
@@ -285,10 +285,14 @@ function noteDeckMap() {
 }
 
 // Each card once, with the decks whose new-card allowance it can draw on.
+// deckId is one deck id, 'all', or several ids joined by commas.
 function cardsIn(deckId) {
   const m = noteDeckMap();
-  return db.cards.filter((c) => deckId === 'all' || m.get(c.noteId)?.includes(deckId))
-    .map((c) => ({ c, decks: deckId === 'all' ? m.get(c.noteId) || [] : [deckId] }));
+  if (deckId === 'all') return db.cards.map((c) => ({ c, decks: m.get(c.noteId) || [] }));
+  const want = String(deckId).split(',');
+  return db.cards
+    .map((c) => ({ c, decks: (m.get(c.noteId) || []).filter((d) => want.includes(d)) }))
+    .filter(({ decks }) => decks.length);
 }
 
 function newLeft(deckId) {

@@ -181,6 +181,8 @@ input[type="checkbox"] { accent-color: var(--accent); }
 .table .num { text-align: right; width: 64px; font-variant-numeric: tabular-nums; }
 .new { color: var(--new); } .learn { color: var(--learn); } .due { color: var(--due); }
 .table.decks td.num { font-weight: 600; }
+.table.decks .pick { width: 28px; padding-right: 0; }
+.table.decks .pick input { width: 16px; height: 16px; cursor: pointer; vertical-align: middle; }
 .bar-cell { display: flex; align-items: center; gap: 8px; min-width: 140px; }
 .bar { height: 8px; border-radius: 4px; background: var(--accent); opacity: .7; }
 

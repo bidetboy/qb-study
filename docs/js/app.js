@@ -1,38 +1,66 @@
 // Entry point: router + deck management, card editor, and study (review) screen.
-import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=5da9d5ed';
+import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=731c113d';
 import {
   db, loadDb, save, flush, replaceDb, createDeck, getDeck, deleteDeck, addNote, updateNote, deleteNote, getNote,
   deckIdsOf, notesInDeck, addNotesToDecks, removeNoteFromDeck,
   deckCounts, nextCard, nextDueTime, gradeCard, undoGrade, reviewsToday, storageMode,
   resetDb, refreshFromCloud, hasUnsaved,
-} from './store.js?v=5da9d5ed';
+} from './store.js?v=731c113d';
 import {
   authEnabled, currentUser, signIn, signUp, signOut, usernameOf, changePassword,
   generateRecoveryCode, setRecoveryCode, hasRecoveryCode, resetPassword,
-} from './auth.js?v=5da9d5ed';
-import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=5da9d5ed';
-import { previewLabels, fmtSpan } from './srs.js?v=5da9d5ed';
-import { deckPicker, pickDecks, deckNames } from './convert.js?v=5da9d5ed';
-import { renderReader } from './reader.js?v=5da9d5ed';
-import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=5da9d5ed';
-import { renderPlay } from './multiplayer.js?v=5da9d5ed';
-import { initThemeToggle } from './theme.js?v=5da9d5ed';
+} from './auth.js?v=731c113d';
+import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=731c113d';
+import { previewLabels, fmtSpan } from './srs.js?v=731c113d';
+import { deckPicker, pickDecks, deckNames } from './convert.js?v=731c113d';
+import { renderReader } from './reader.js?v=731c113d';
+import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=731c113d';
+import { renderPlay } from './multiplayer.js?v=731c113d';
+import { initThemeToggle } from './theme.js?v=731c113d';
 
 const main = $('#main');
 initThemeToggle($('#theme-toggle'));
 
 /* ================= Decks ================= */
 
+const PICK_KEY = 'qb-study-picked-decks';
+
 function renderDecks(el) {
   const counts = (id) => deckCounts(id);
   const all = counts('all');
+  let picked;
+  try { picked = new Set(JSON.parse(localStorage.getItem(PICK_KEY)) || []); } catch { picked = new Set(); }
+  for (const id of [...picked]) if (!getDeck(id)) picked.delete(id);
+  const multi = db.decks.length > 1;
+
+  const studyPicked = h('button', { class: 'btn primary' });
+  const pickedHint = h('span', { class: 'muted small' });
+  const paintPicked = () => {
+    localStorage.setItem(PICK_KEY, JSON.stringify([...picked]));
+    const ids = [...picked];
+    const c = ids.length ? deckCounts(ids.join(',')) : { new: 0, learn: 0, review: 0 };
+    const n = c.new + c.learn + c.review;
+    studyPicked.textContent = ids.length ? `Study ${ids.length} selected deck${ids.length === 1 ? '' : 's'}` : 'Study selected decks';
+    studyPicked.disabled = ids.length < 1 || !n;
+    pickedHint.textContent = ids.length
+      ? `${c.new} new · ${c.learn} learning · ${c.review} due, mixed together`
+      : 'Tick decks to study them together';
+  };
+  studyPicked.addEventListener('click', () => {
+    const ids = db.decks.map((d) => d.id).filter((id) => picked.has(id));
+    if (ids.length) location.hash = `#/study/${ids.map(encodeURIComponent).join(',')}`;
+  });
+
   const row = (id, name, c, isAll = false) => h('tr', null,
+    multi && h('td', { class: 'pick' }, !isAll && h('input', { type: 'checkbox', checked: picked.has(id), title: 'Include in a combined study session',
+      onChange: (e) => { e.target.checked ? picked.add(id) : picked.delete(id); paintPicked(); } })),
     h('td', null, isAll ? h('b', null, name) : h('a', { href: `#/deck/${id}` }, name)),
     h('td', { class: 'num new' }, c.new), h('td', { class: 'num learn' }, c.learn), h('td', { class: 'num due' }, c.review),
     h('td', { class: 'row gap-s end' },
       h('button', { class: 'btn small primary', disabled: !(c.new + c.learn + c.review), onClick: () => (location.hash = `#/study/${id}`) }, 'Study'),
       !isAll && h('button', { class: 'btn small', onClick: () => (location.hash = `#/add/${id}`) }, '＋ Add')));
 
+  if (multi) paintPicked();
   const nameInput = h('input', { class: 'input', placeholder: 'New deck name' });
   el.append(
     h('div', { class: 'row between wrap' },
@@ -40,10 +68,11 @@ function renderDecks(el) {
       h('span', { class: 'muted small' }, `${reviewsToday()} reviews today · ${db.cards.length} cards total`)),
     db.decks.length
       ? h('table', { class: 'table decks' },
-          h('thead', null, h('tr', null, h('th', null, 'Deck'), h('th', { class: 'num' }, 'New'), h('th', { class: 'num' }, 'Learn'), h('th', { class: 'num' }, 'Due'), h('th', null, ''))),
-          h('tbody', null, db.decks.map((d) => row(d.id, d.name, counts(d.id))), db.decks.length > 1 && row('all', 'All decks', all, true)))
+          h('thead', null, h('tr', null, multi && h('th', { class: 'pick' }, ''), h('th', null, 'Deck'), h('th', { class: 'num' }, 'New'), h('th', { class: 'num' }, 'Learn'), h('th', { class: 'num' }, 'Due'), h('th', null, ''))),
+          h('tbody', null, db.decks.map((d) => row(d.id, d.name, counts(d.id))), multi && row('all', 'All decks', all, true)))
       : h('div', { class: 'empty' },
           h('p', null, 'No decks yet. Create one below, then add your own cloze cards, or turn QB Reader questions into cards from the Reader, Search or Packets pages.')),
+    multi && h('div', { class: 'row gap-s wrap', style: 'margin-top:12px' }, studyPicked, pickedHint),
     h('form', { class: 'row gap-s', style: 'margin-top:16px', onSubmit: (e) => {
       e.preventDefault();
       const name = nameInput.value.trim();
@@ -252,8 +281,13 @@ function renderEditor(el, { note = null, deckId = null }) {
 /* ================= Study ================= */
 
 function renderStudy(el, deckId) {
-  const deck = deckId === 'all' ? { name: 'All decks' } : getDeck(deckId);
-  if (!deck) { el.append(h('p', null, 'Deck not found.')); return; }
+  const ids = deckId === 'all' ? [] : deckId.split(',').filter(getDeck);
+  if (deckId !== 'all' && !ids.length) { el.append(h('p', null, 'Deck not found.')); return; }
+  deckId = deckId === 'all' ? 'all' : ids.join(',');
+  const deck = deckId === 'all' ? { name: 'All decks' }
+    : ids.length === 1 ? getDeck(ids[0])
+    : { name: deckNames(ids) };
+  const backHref = ids.length === 1 ? `#/deck/${ids[0]}` : '#/decks';
   let card = null;
   let showing = false;
   let undo = null;
@@ -266,7 +300,7 @@ function renderStudy(el, deckId) {
   const paintHead = () => {
     const c = deckCounts(deckId);
     head.replaceChildren(
-      h('div', null, h('a', { href: deckId === 'all' ? '#/decks' : `#/deck/${deckId}`, class: 'muted small' }, '‹ ' + deck.name), h('h2', null, 'Study')),
+      h('div', null, h('a', { href: backHref, class: 'muted small' }, '‹ ' + deck.name), h('h2', null, 'Study')),
       h('div', { class: 'row gap-s' },
         h('span', { class: 'count new', title: 'New' }, c.new), h('span', { class: 'count learn', title: 'Learning' }, c.learn), h('span', { class: 'count due', title: 'Due' }, c.review),
         undo && h('button', { class: 'btn tiny ghost', onClick: doUndo }, 'Undo', h('kbd', null, 'U'))));
