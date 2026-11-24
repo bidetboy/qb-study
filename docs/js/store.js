@@ -1,8 +1,8 @@
 // App state. Persisted to the signed-in user's Supabase row (cloud), the local dev server, or this browser.
-import { uid, toast, todayKey } from './util.js?v=731c113d';
-import { fetchCloud, pushCloud } from './auth.js?v=731c113d';
-import { clozeNumbers } from './cloze.js?v=731c113d';
-import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=731c113d';
+import { uid, toast, todayKey } from './util.js?v=84b63065';
+import { fetchCloud, pushCloud } from './auth.js?v=84b63065';
+import { clozeNumbers } from './cloze.js?v=84b63065';
+import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=84b63065';
 
 const LS_KEY = 'qbstudy-db';
 const IDB_NAME = 'qbstudy';
@@ -212,6 +212,20 @@ export function createDeck(name) {
 export function getDeck(id) { return db.decks.find((d) => d.id === id); }
 
 // Notes only in this deck are deleted; notes also in other decks just leave it.
+// Put every card in the deck back to new, as if it had never been reviewed.
+// Review history (stats) is kept. Returns how many cards changed.
+export function resetDeckProgress(id) {
+  const noteIds = new Set(db.notes.filter((n) => deckIdsOf(n).includes(id)).map((n) => n.id));
+  let changed = 0;
+  db.cards = db.cards.map((c) => {
+    if (!noteIds.has(c.noteId) || c.state === 'new') return c;
+    changed++;
+    return { ...c, state: 'new', due: 0, interval: 0, ease: 2.5, step: 0, reps: 0, lapses: 0 };
+  });
+  if (changed) save();
+  return changed;
+}
+
 export function deleteDeck(id) {
   const noteIds = new Set();
   for (const n of db.notes) {

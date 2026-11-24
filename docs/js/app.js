@@ -1,22 +1,22 @@
 // Entry point: router + deck management, card editor, and study (review) screen.
-import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=731c113d';
+import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=84b63065';
 import {
   db, loadDb, save, flush, replaceDb, createDeck, getDeck, deleteDeck, addNote, updateNote, deleteNote, getNote,
-  deckIdsOf, notesInDeck, addNotesToDecks, removeNoteFromDeck,
+  deckIdsOf, notesInDeck, addNotesToDecks, removeNoteFromDeck, resetDeckProgress,
   deckCounts, nextCard, nextDueTime, gradeCard, undoGrade, reviewsToday, storageMode,
   resetDb, refreshFromCloud, hasUnsaved,
-} from './store.js?v=731c113d';
+} from './store.js?v=84b63065';
 import {
   authEnabled, currentUser, signIn, signUp, signOut, usernameOf, changePassword,
   generateRecoveryCode, setRecoveryCode, hasRecoveryCode, resetPassword,
-} from './auth.js?v=731c113d';
-import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=731c113d';
-import { previewLabels, fmtSpan } from './srs.js?v=731c113d';
-import { deckPicker, pickDecks, deckNames } from './convert.js?v=731c113d';
-import { renderReader } from './reader.js?v=731c113d';
-import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=731c113d';
-import { renderPlay } from './multiplayer.js?v=731c113d';
-import { initThemeToggle } from './theme.js?v=731c113d';
+} from './auth.js?v=84b63065';
+import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=84b63065';
+import { previewLabels, fmtSpan } from './srs.js?v=84b63065';
+import { deckPicker, pickDecks, deckNames } from './convert.js?v=84b63065';
+import { renderReader } from './reader.js?v=84b63065';
+import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=84b63065';
+import { renderPlay } from './multiplayer.js?v=84b63065';
+import { initThemeToggle } from './theme.js?v=84b63065';
 
 const main = $('#main');
 initThemeToggle($('#theme-toggle'));
@@ -72,7 +72,7 @@ function renderDecks(el) {
           h('tbody', null, db.decks.map((d) => row(d.id, d.name, counts(d.id))), multi && row('all', 'All decks', all, true)))
       : h('div', { class: 'empty' },
           h('p', null, 'No decks yet. Create one below, then add your own cloze cards, or turn QB Reader questions into cards from the Reader, Search or Packets pages.')),
-    multi && h('div', { class: 'row gap-s wrap', style: 'margin-top:12px' }, studyPicked, pickedHint),
+    multi ? h('div', { class: 'row gap-s wrap', style: 'margin-top:12px' }, studyPicked, pickedHint) : '',
     h('form', { class: 'row gap-s', style: 'margin-top:16px', onSubmit: (e) => {
       e.preventDefault();
       const name = nameInput.value.trim();
@@ -216,6 +216,19 @@ function renderDeck(el, id) {
         h('button', { class: 'btn primary', disabled: !(c.new + c.learn + c.review), onClick: () => (location.hash = `#/study/${id}`) }, 'Study'),
         h('button', { class: 'btn', onClick: () => (location.hash = `#/add/${id}`) }, '＋ Add card'),
         h('button', { class: 'btn ghost', onClick: async () => { const name = await promptDialog('Rename deck', deck.name); if (name) { deck.name = name; save(); route(); } } }, 'Rename'),
+        h('button', { class: 'btn ghost', onClick: async () => {
+          const notes = notesInDeck(id);
+          const ids = new Set(notes.map((n) => n.id));
+          const studied = db.cards.filter((x) => ids.has(x.noteId) && x.state !== 'new').length;
+          if (!studied) return toast('Every card in this deck is already new');
+          const shared = notes.filter((n) => deckIdsOf(n).length > 1).length;
+          const msg = `Reset progress on ${studied} studied card${studied === 1 ? '' : 's'} in “${deck.name}”? They go back to new, as if never reviewed. This can’t be undone.`
+            + (shared ? ` ${shared} of these notes are also in other decks and will reset there too.` : '');
+          if (!(await confirmDialog(msg, 'Reset progress'))) return;
+          const n = resetDeckProgress(id);
+          toast(`Reset ${n} card${n === 1 ? '' : 's'} to new`);
+          route();
+        } }, 'Reset progress'),
         h('button', { class: 'btn ghost', onClick: () => download(`${deck.name}.json`, JSON.stringify({ deck, notes: notesInDeck(id) }, null, 2)) }, 'Export'),
         h('button', { class: 'btn ghost danger', onClick: async () => { if (await confirmDialog(`Delete “${deck.name}” and all its cards? Notes that are also in other decks stay there.`)) { deleteDeck(id); location.hash = '#/decks'; } } }, 'Delete'))),
     h('input', { class: 'input', placeholder: 'Search notes in this deck…', onInput: (e) => { filter = e.target.value; paint(); } }),

@@ -1,11 +1,11 @@
 // Search (query + lookup by ID), Packets, Frequency lists, Saved questions, and Stats.
-import { h, toast, confirmDialog, download, fmtDate, CATEGORIES, ALT_SUBCATEGORIES, shuffle } from './util.js?v=731c113d';
-import { api, filterParams } from './api.js?v=731c113d';
-import { db, save } from './store.js?v=731c113d';
-import { questionCard } from './qview.js?v=731c113d';
-import { openConverter } from './convert.js?v=731c113d';
-import { startReader } from './reader.js?v=731c113d';
-import { filterPanel, difficultyChips } from './filters.js?v=731c113d';
+import { h, toast, confirmDialog, download, fmtDate, CATEGORIES, ALT_SUBCATEGORIES, shuffle } from './util.js?v=84b63065';
+import { api, filterParams } from './api.js?v=84b63065';
+import { db, save } from './store.js?v=84b63065';
+import { questionCard } from './qview.js?v=84b63065';
+import { openConverter } from './convert.js?v=84b63065';
+import { startReader } from './reader.js?v=84b63065';
+import { filterPanel, difficultyChips } from './filters.js?v=84b63065';
 
 const practice = (q, type) => startReader({ type, questions: [q], label: 'Single question' });
 const cardActions = { cards: openConverter, practice };
