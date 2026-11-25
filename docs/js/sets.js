@@ -1,6 +1,6 @@
 // Tossup practice sets: the set picker, "Save to set" from anywhere, and the undo popup.
-import { h, toast, modal, promptDialog } from './util.js?v=5000385e';
-import { db, save, isSaved, toggleSaved, setIdsOf, createTossupSet, getTossupSet } from './store.js?v=5000385e';
+import { h, toast, modal, promptDialog } from './util.js?v=4b7a325a';
+import { db, save, isSaved, toggleSaved, setIdsOf, createTossupSet, getTossupSet } from './store.js?v=4b7a325a';
 
 // Checkbox list of tossup sets with a "new set" button. Resolves to chosen ids, or null if cancelled.
 export function pickSets(title, selectedIds = [], okLabel = 'Save') {

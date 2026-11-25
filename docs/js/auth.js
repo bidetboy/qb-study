@@ -1,5 +1,5 @@
 // Username + password accounts via Supabase Auth, plus per-user cloud storage of the app data.
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=5000385e';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=4b7a325a';
 
 export const authEnabled = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 

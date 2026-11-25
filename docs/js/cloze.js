@@ -1,5 +1,5 @@
 // Anki-style cloze syntax: {{c1::answer}} or {{c1::answer::hint}}
-import { esc } from './util.js?v=5000385e';
+import { esc } from './util.js?v=4b7a325a';
 
 const RE = /\{\{c(\d+)::([\s\S]*?)(?:::([\s\S]*?))?\}\}/g;
 

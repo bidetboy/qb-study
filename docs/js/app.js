@@ -1,22 +1,22 @@
 // Entry point: router + deck management, card editor, and study (review) screen.
-import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=5000385e';
+import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=4b7a325a';
 import {
   db, loadDb, save, flush, replaceDb, createDeck, getDeck, deleteDeck, addNote, updateNote, deleteNote, getNote,
-  deckIdsOf, notesInDeck, addNotesToDecks, removeNoteFromDeck, resetDeckProgress,
+  deckIdsOf, notesInDeck, addNotesToDecks, removeNoteFromDeck, resetDeckProgress, extendNewToday,
   deckCounts, nextCard, nextDueTime, gradeCard, undoGrade, reviewsToday, storageMode,
   resetDb, refreshFromCloud, hasUnsaved,
-} from './store.js?v=5000385e';
+} from './store.js?v=4b7a325a';
 import {
   authEnabled, currentUser, signIn, signUp, signOut, usernameOf, changePassword,
   generateRecoveryCode, setRecoveryCode, hasRecoveryCode, resetPassword,
-} from './auth.js?v=5000385e';
-import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=5000385e';
-import { previewLabels, fmtSpan } from './srs.js?v=5000385e';
-import { deckPicker, pickDecks, deckNames } from './convert.js?v=5000385e';
-import { renderReader } from './reader.js?v=5000385e';
-import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=5000385e';
-import { renderPlay } from './multiplayer.js?v=5000385e';
-import { initThemeToggle } from './theme.js?v=5000385e';
+} from './auth.js?v=4b7a325a';
+import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=4b7a325a';
+import { previewLabels, fmtSpan } from './srs.js?v=4b7a325a';
+import { deckPicker, pickDecks, deckNames } from './convert.js?v=4b7a325a';
+import { renderReader } from './reader.js?v=4b7a325a';
+import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=4b7a325a';
+import { renderPlay } from './multiplayer.js?v=4b7a325a';
+import { initThemeToggle } from './theme.js?v=4b7a325a';
 
 const main = $('#main');
 initThemeToggle($('#theme-toggle'));
@@ -55,7 +55,7 @@ function renderDecks(el) {
     multi && h('td', { class: 'pick' }, !isAll && h('input', { type: 'checkbox', checked: picked.has(id), title: 'Include in a combined study session',
       onChange: (e) => { e.target.checked ? picked.add(id) : picked.delete(id); paintPicked(); } })),
     h('td', null, isAll ? h('b', null, name) : h('a', { href: `#/deck/${id}` }, name)),
-    h('td', { class: 'num new' }, c.new), h('td', { class: 'num learn' }, c.learn), h('td', { class: 'num due' }, c.review),
+    h('td', { class: 'num new', title: c.unseen > c.new ? `${c.unseen} new cards in all; ${c.new} allowed today (daily limit ${db.settings.newPerDay})` : null }, c.new), h('td', { class: 'num learn' }, c.learn), h('td', { class: 'num due' }, c.review),
     h('td', { class: 'row gap-s end' },
       h('button', { class: 'btn small primary', disabled: !(c.new + c.learn + c.review), onClick: () => (location.hash = `#/study/${id}`) }, 'Study'),
       !isAll && h('button', { class: 'btn small', onClick: () => (location.hash = `#/add/${id}`) }, '＋ Add')));
@@ -134,6 +134,15 @@ function accountSection() {
 }
 
 /* ================= Deck browser ================= */
+
+// Explains why the deck's "new" count is lower than its number of new cards.
+function limitText(c) {
+  const limit = db.settings.newPerDay;
+  const waiting = `${c.unseen} new card${c.unseen === 1 ? ' is' : 's are'} waiting`;
+  if (!limit) return `${waiting}, but your daily new-card limit is 0. Change it under Settings & data on the Decks page.`;
+  if (c.new) return `${c.new} of ${c.unseen} new cards can be studied today (daily limit: ${limit} new cards per deck).`;
+  return `${waiting}. You’ve reached today’s limit of ${limit} new cards for this deck.`;
+}
 
 function renderDeck(el, id) {
   const deck = getDeck(id);
@@ -231,6 +240,9 @@ function renderDeck(el, id) {
         } }, 'Reset progress'),
         h('button', { class: 'btn ghost', onClick: () => download(`${deck.name}.json`, JSON.stringify({ deck, notes: notesInDeck(id) }, null, 2)) }, 'Export'),
         h('button', { class: 'btn ghost danger', onClick: async () => { if (await confirmDialog(`Delete “${deck.name}” and all its cards? Notes that are also in other decks stay there.`)) { deleteDeck(id); location.hash = '#/decks'; } } }, 'Delete'))),
+    c.unseen > c.new && h('div', { class: 'panel limit-note row wrap gap-s' },
+      h('span', { class: 'grow' }, limitText(c)),
+      db.settings.newPerDay > 0 && h('button', { class: 'btn small', onClick: () => { extendNewToday(id, db.settings.newPerDay); route(); } }, `Study ${db.settings.newPerDay} more today`)),
     h('input', { class: 'input', placeholder: 'Search notes in this deck…', onInput: (e) => { filter = e.target.value; paint(); } }),
     bulk, list);
   paint();

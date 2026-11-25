@@ -1,8 +1,8 @@
 // App state. Persisted to the signed-in user's Supabase row (cloud), the local dev server, or this browser.
-import { uid, toast, todayKey } from './util.js?v=5000385e';
-import { fetchCloud, pushCloud } from './auth.js?v=5000385e';
-import { clozeNumbers } from './cloze.js?v=5000385e';
-import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=5000385e';
+import { uid, toast, todayKey } from './util.js?v=4b7a325a';
+import { fetchCloud, pushCloud } from './auth.js?v=4b7a325a';
+import { clozeNumbers } from './cloze.js?v=4b7a325a';
+import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=4b7a325a';
 
 const LS_KEY = 'qbstudy-db';
 const IDB_NAME = 'qbstudy';
@@ -212,8 +212,8 @@ export function createDeck(name) {
 
 export function getDeck(id) { return db.decks.find((d) => d.id === id); }
 
-// Notes only in this deck are deleted; notes also in other decks just leave it.
-// Put every card in the deck back to new, as if it had never been reviewed.
+// Put every card in the deck back to new, as if it had never been reviewed, and give back today's
+// new-card allowance for the deck so the reset cards can be studied right away.
 // Review history (stats) is kept. Returns how many cards changed.
 export function resetDeckProgress(id) {
   const noteIds = new Set(db.notes.filter((n) => deckIdsOf(n).includes(id)).map((n) => n.id));
@@ -223,10 +223,20 @@ export function resetDeckProgress(id) {
     changed++;
     return { ...c, state: 'new', due: 0, interval: 0, ease: 2.5, step: 0, reps: 0, lapses: 0 };
   });
-  if (changed) save();
+  const day = db.dayLog[todayKey()];
+  if (day?.[id]) delete day[id];
+  save();
   return changed;
 }
 
+// Anki-style "increase today's new card limit": let `n` more new cards in today.
+export function extendNewToday(deckId, n) {
+  const day = (db.dayLog[todayKey()] ||= {});
+  day[deckId] = (day[deckId] || 0) - n;
+  save();
+}
+
+// Notes only in this deck are deleted; notes also in other decks just leave it.
 export function deleteDeck(id) {
   const noteIds = new Set();
   for (const n of db.notes) {
@@ -323,12 +333,14 @@ export function deckCounts(deckId, now = Date.now()) {
   const review = list.filter(({ c }) => c.state === 'review' && c.due <= now).length;
   const left = {};
   let fresh = 0;
+  let unseen = 0;
   for (const { c, decks } of list) {
     if (c.state !== 'new') continue;
+    unseen++;
     const d = decks.find((x) => (left[x] ??= newLeft(x)) > 0);
     if (d) { left[d]--; fresh++; }
   }
-  return { new: fresh, learn, review, total: list.length };
+  return { new: fresh, unseen, learn, review, total: list.length };
 }
 
 let sessionCounter = 0;

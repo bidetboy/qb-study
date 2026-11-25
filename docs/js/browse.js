@@ -1,15 +1,15 @@
 // Search (query + lookup by ID), Packets, Frequency lists, Saved questions, and Stats.
-import { h, toast, confirmDialog, promptDialog, modal, download, fmtDate, CATEGORIES, ALT_SUBCATEGORIES, shuffle } from './util.js?v=5000385e';
-import { api, filterParams } from './api.js?v=5000385e';
+import { h, toast, confirmDialog, promptDialog, modal, download, fmtDate, CATEGORIES, ALT_SUBCATEGORIES, shuffle } from './util.js?v=4b7a325a';
+import { api, filterParams } from './api.js?v=4b7a325a';
 import {
   db, save, setIdsOf, createTossupSet, getTossupSet, renameTossupSet, deleteTossupSet,
   tossupsInSet, addSavedToSets, setSavedSets, removeSavedFromSet,
-} from './store.js?v=5000385e';
-import { questionCard } from './qview.js?v=5000385e';
-import { openConverter } from './convert.js?v=5000385e';
-import { startReader, playSet } from './reader.js?v=5000385e';
-import { pickSets } from './sets.js?v=5000385e';
-import { filterPanel, difficultyChips } from './filters.js?v=5000385e';
+} from './store.js?v=4b7a325a';
+import { questionCard } from './qview.js?v=4b7a325a';
+import { openConverter } from './convert.js?v=4b7a325a';
+import { startReader, playSet } from './reader.js?v=4b7a325a';
+import { pickSets } from './sets.js?v=4b7a325a';
+import { filterPanel, difficultyChips } from './filters.js?v=4b7a325a';
 
 const practice = (q, type) => startReader({ type, questions: [q], label: 'Single question' });
 const cardActions = { cards: openConverter, practice, toSet: true };
