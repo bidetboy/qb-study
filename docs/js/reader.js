@@ -1,11 +1,12 @@
 // QB Reader-style practice: word-by-word tossups with buzzing, and bonuses part by part.
-import { h, esc, sanitizeHtml, toast } from './util.js?v=b2f98fbf';
-import { api, filterParams } from './api.js?v=b2f98fbf';
-import { db, save, addHistory, toggleSaved, isSaved } from './store.js?v=b2f98fbf';
-import { checkAnswer } from './judge.js?v=b2f98fbf';
-import { qMeta, statsBlock, saveButton } from './qview.js?v=b2f98fbf';
-import { openConverter } from './convert.js?v=b2f98fbf';
-import { filterPanel, filterSummary } from './filters.js?v=b2f98fbf';
+import { h, esc, sanitizeHtml, toast, shuffle } from './util.js?v=5000385e';
+import { api, filterParams } from './api.js?v=5000385e';
+import { db, save, addHistory, toggleSaved, isSaved, getTossupSet, tossupsInSet } from './store.js?v=5000385e';
+import { saveToSetButton, saveToSet } from './sets.js?v=5000385e';
+import { checkAnswer } from './judge.js?v=5000385e';
+import { qMeta, statsBlock, saveButton } from './qview.js?v=5000385e';
+import { openConverter } from './convert.js?v=5000385e';
+import { filterPanel, filterSummary } from './filters.js?v=5000385e';
 
 const R = {
   type: 'tossup',
@@ -25,15 +26,39 @@ const R = {
 
 let els = null; // mounted DOM refs
 
-export function startReader({ type, questions, label }) {
+export function startReader({ type, questions, label, setId = null }) {
   stopTimer();
   R.type = type;
-  R.source = { kind: 'list', label };
+  R.source = { kind: 'list', label, setId };
   R.queue = [...questions];
   R.q = null;
   R.phase = 'idle';
   if (location.hash === '#/reader' && els) next();
   else { R.pendingStart = true; location.hash = '#/reader'; }
+}
+
+// Read a tossup practice set (shuffled). Returns false if the set is empty.
+export function playSet(id) {
+  const t = getTossupSet(id);
+  const qs = t ? tossupsInSet(id).map((s) => s.data) : [];
+  if (!qs.length) { toast('This set has no tossups yet', 'error'); return false; }
+  startReader({ type: 'tossup', questions: shuffle(qs), label: `Set: ${t.name}`, setId: id });
+  return true;
+}
+
+const toRandom = () => { R.source = { kind: 'random', label: 'Random' }; R.queue = []; next(); };
+
+// "Read from" dropdown: random questions or one of the tossup practice sets.
+function setSelect() {
+  if (R.type !== 'tossup' || !db.tossupSets.length) return null;
+  const cur = R.source.setId || '';
+  return h('label', { class: 'row gap-s set-select' }, 'Read from',
+    h('select', { class: 'input small', onChange: (e) => {
+      if (!e.target.value) toRandom();
+      else if (!playSet(e.target.value)) e.target.value = cur;
+    } },
+      h('option', { value: '', selected: !cur }, 'Random questions'),
+      db.tossupSets.map((t) => h('option', { value: t.id, selected: cur === t.id }, `${t.name} (${tossupsInSet(t.id).length})`))));
 }
 
 function stopTimer() { clearInterval(R.timer); R.timer = null; }
@@ -252,6 +277,7 @@ function sessionLine() {
 function actionsRow() {
   return h('div', { class: 'row wrap gap-s' },
     saveButton(R.q, R.type),
+    R.type === 'tossup' && saveToSetButton(R.q, { onChange: paint }),
     h('button', { class: 'btn small', onClick: () => openConverter(R.q, R.type, { results: R.type === 'bonus' ? R.entry?.parts : null }), title: 'C' }, '＋ Make cards'));
 }
 
@@ -353,9 +379,9 @@ function paint() {
   const { stage, session, sourceLabel } = els;
   stage.replaceChildren();
   els.text = null;
-  sourceLabel.replaceChildren(h('span', null,
+  sourceLabel.replaceChildren(setSelect() || '', h('span', null,
     R.source.kind === 'random' ? `Random · ${filterSummary(db.settings.filters)}` : `${R.source.label} · ${R.queue.length} left`,
-    R.source.kind !== 'random' && h('button', { class: 'btn tiny ghost', onClick: () => { R.source = { kind: 'random', label: 'Random' }; R.queue = []; next(); } }, 'Back to random')));
+    R.source.kind !== 'random' && h('button', { class: 'btn tiny ghost', onClick: toRandom }, 'Back to random')));
   session.textContent = sessionLine();
 
   if (R.phase === 'idle') {
@@ -365,8 +391,11 @@ function paint() {
   } else if (R.phase === 'error') {
     stage.append(h('div', { class: 'empty' }, h('p', { class: 'warn' }, R.error), h('button', { class: 'btn', onClick: next }, 'Try again')));
   } else if (R.phase === 'end') {
+    const setId = R.source.setId;
     stage.append(h('div', { class: 'empty' }, h('p', null, `Finished “${R.source.label}”.`),
-      h('button', { class: 'btn primary', onClick: () => { R.source = { kind: 'random', label: 'Random' }; next(); } }, 'Continue with random questions')));
+      h('div', { class: 'row gap-s', style: 'justify-content:center' },
+        setId && getTossupSet(setId) && h('button', { class: 'btn primary', onClick: () => playSet(setId) }, '↻ Play set again'),
+        h('button', { class: `btn${setId ? '' : ' primary'}`, onClick: toRandom }, 'Continue with random questions'))));
   } else if (R.type === 'tossup') paintTossup(stage);
   else paintBonus(stage);
 }
@@ -410,7 +439,7 @@ export function renderReader(main) {
       h('label', null, h('input', { type: 'checkbox', checked: db.settings.showCategory, onChange: (e) => { db.settings.showCategory = e.target.checked; save(); paint(); } }), ' Show category while reading')),
     h('div', { class: 'muted small' }, 'Filter changes apply from the next question.'));
 
-  const sourceLabel = h('div', { class: 'row gap-s muted small' });
+  const sourceLabel = h('div', { class: 'row wrap gap-s muted small' });
   const stage = h('section', { class: 'stage' });
   const session = h('div', { class: 'session muted small' });
 
@@ -423,7 +452,7 @@ export function renderReader(main) {
     sourceLabel,
     stage,
     session,
-    h('div', { class: 'muted small keys' }, 'Keys: Space buzz/next · P pause · R reveal · N skip/next · S save · C make cards · O override verdict · Y/N mark bonus part'));
+    h('div', { class: 'muted small keys' }, 'Keys: Space buzz/next · P pause · R reveal · N skip/next · S save · A save to set · C make cards · O override verdict · Y/N mark bonus part'));
 
   els = { stage, session, sourceLabel, text: null };
 
@@ -459,6 +488,7 @@ export function renderReader(main) {
       if (k === 'r' && R.type === 'tossup' && ['reading', 'paused', 'waiting'].includes(R.phase)) { finishTossup(null); return true; }
       if (k === 'o' && R.phase === 'answered' && R.type === 'tossup') { overrideTossup(); return true; }
       if (k === 's' && R.q) { const on = toggleSaved(R.q, R.type); toast(on ? 'Saved' : 'Removed from saved'); paint(); return true; }
+      if (k === 'a' && R.q && R.type === 'tossup' && R.phase === 'answered') { saveToSet(R.q, { onChange: paint }); return true; }
       if (k === 'c' && R.q && R.phase === 'answered') { openConverter(R.q, R.type, { results: R.type === 'bonus' ? R.entry?.parts : null }); return true; }
       return false;
     },

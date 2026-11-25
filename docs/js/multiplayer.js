@@ -1,14 +1,14 @@
 // Multiplayer tossup rooms over Supabase Realtime (broadcast + presence) — no database tables.
 // One browser in the room (the host) runs the game and broadcasts the whole room state; everyone
 // else sends it buzzes, answers and chat. If the host leaves, the longest-present player takes over.
-import { h, esc, sanitizeHtml, uid, promptDialog, toast } from './util.js?v=b2f98fbf';
-import { api, filterParams } from './api.js?v=b2f98fbf';
-import { db, save, addHistory } from './store.js?v=b2f98fbf';
-import { authEnabled, currentUser, usernameOf, openChannel, closeChannel } from './auth.js?v=b2f98fbf';
-import { checkAnswer } from './judge.js?v=b2f98fbf';
-import { qMeta, saveButton } from './qview.js?v=b2f98fbf';
-import { filterPanel, filterSummary } from './filters.js?v=b2f98fbf';
-import { openConverter } from './convert.js?v=b2f98fbf';
+import { h, esc, sanitizeHtml, uid, promptDialog, toast } from './util.js?v=5000385e';
+import { api, filterParams } from './api.js?v=5000385e';
+import { db, save, addHistory } from './store.js?v=5000385e';
+import { authEnabled, currentUser, usernameOf, openChannel, closeChannel } from './auth.js?v=5000385e';
+import { checkAnswer } from './judge.js?v=5000385e';
+import { qMeta, saveButton } from './qview.js?v=5000385e';
+import { filterPanel, filterSummary } from './filters.js?v=5000385e';
+import { openConverter } from './convert.js?v=5000385e';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ANSWER_MS = 10000; // time to answer after buzzing (reset by a prompt)

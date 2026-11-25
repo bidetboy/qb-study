@@ -38,5 +38,5 @@ Then open http://localhost:5178. No dependencies; requires Node 18+. Locally, da
 - **Search** (`/query`) with all options and pagination; open any question by ID (`/tossup`, `/bonus`).
 - **Packets**: browse all sets (`/set-list`), packet counts (`/num-packets`), read or play any packet (`/packet`).
 - **Frequency lists** (`/frequency-list`): most common answers per category/subcategory.
-- **Saved questions** with tags, notes, filters, and practice mode. Group saved tossups into named **practice sets** (e.g. “American plays”): filter the list and “Add to set…”, or use “Sets…” on one tossup; then press ▶ Practice on the set to play just those tossups.
+- **Saved questions** with tags, notes, filters, and practice mode. Group saved tossups into named **practice sets** (e.g. “American plays”): “＋ Save to set” on any tossup in the reader (key `A`), search or packets saves it straight into a set, with a 10-second Undo popup; on the Saved page, filter and “Add to set…”, or turn a tag into a set with “Set from tag…”. Read a set by picking it from the **Read from** dropdown in the Reader, or ▶ Practice on the Saved page.
 - **Stats**: your own per-category history plus QB Reader global stats (`/question-stats/*`).

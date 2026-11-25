@@ -1,7 +1,8 @@
 // Shared rendering for API questions: cards, metadata, stats, and actions.
-import { h, sanitizeHtml, toast, DIFFICULTIES } from './util.js?v=b2f98fbf';
-import { api } from './api.js?v=b2f98fbf';
-import { isSaved, toggleSaved } from './store.js?v=b2f98fbf';
+import { h, sanitizeHtml, toast, DIFFICULTIES } from './util.js?v=5000385e';
+import { api } from './api.js?v=5000385e';
+import { isSaved, toggleSaved } from './store.js?v=5000385e';
+import { saveToSetButton } from './sets.js?v=5000385e';
 
 export function qMeta(q) {
   const bits = [
@@ -31,6 +32,7 @@ export function saveButton(q, type) {
     paint();
   });
   paint();
+  btn.refresh = paint;
   return btn;
 }
 
@@ -55,11 +57,13 @@ export function statsBlock(q, type) {
   return box;
 }
 
-// actions: { practice?: fn, cards?: fn, extra?: [nodes] }
+// actions: { practice?: fn, cards?: fn, toSet?: bool, extra?: [nodes] }
 export function questionCard(q, type, actions = {}) {
   const statsSlot = h('div');
+  const saveBtn = saveButton(q, type);
   const toolbar = h('div', { class: 'row wrap gap-s' },
-    saveButton(q, type),
+    saveBtn,
+    actions.toSet && type === 'tossup' && saveToSetButton(q, { onChange: saveBtn.refresh }),
     actions.cards && h('button', { class: 'btn small', onClick: () => actions.cards(q, type) }, '＋ Make cards'),
     actions.practice && h('button', { class: 'btn small', onClick: () => actions.practice(q, type) }, '▶ Practice'),
     h('button', { class: 'btn small ghost', onClick: (e) => { e.target.remove(); statsSlot.append(statsBlock(q, type)); } }, 'Stats'),

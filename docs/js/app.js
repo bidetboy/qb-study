@@ -1,22 +1,22 @@
 // Entry point: router + deck management, card editor, and study (review) screen.
-import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=b2f98fbf';
+import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=5000385e';
 import {
   db, loadDb, save, flush, replaceDb, createDeck, getDeck, deleteDeck, addNote, updateNote, deleteNote, getNote,
   deckIdsOf, notesInDeck, addNotesToDecks, removeNoteFromDeck, resetDeckProgress,
   deckCounts, nextCard, nextDueTime, gradeCard, undoGrade, reviewsToday, storageMode,
   resetDb, refreshFromCloud, hasUnsaved,
-} from './store.js?v=b2f98fbf';
+} from './store.js?v=5000385e';
 import {
   authEnabled, currentUser, signIn, signUp, signOut, usernameOf, changePassword,
   generateRecoveryCode, setRecoveryCode, hasRecoveryCode, resetPassword,
-} from './auth.js?v=b2f98fbf';
-import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=b2f98fbf';
-import { previewLabels, fmtSpan } from './srs.js?v=b2f98fbf';
-import { deckPicker, pickDecks, deckNames } from './convert.js?v=b2f98fbf';
-import { renderReader } from './reader.js?v=b2f98fbf';
-import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=b2f98fbf';
-import { renderPlay } from './multiplayer.js?v=b2f98fbf';
-import { initThemeToggle } from './theme.js?v=b2f98fbf';
+} from './auth.js?v=5000385e';
+import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=5000385e';
+import { previewLabels, fmtSpan } from './srs.js?v=5000385e';
+import { deckPicker, pickDecks, deckNames } from './convert.js?v=5000385e';
+import { renderReader } from './reader.js?v=5000385e';
+import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=5000385e';
+import { renderPlay } from './multiplayer.js?v=5000385e';
+import { initThemeToggle } from './theme.js?v=5000385e';
 
 const main = $('#main');
 initThemeToggle($('#theme-toggle'));
