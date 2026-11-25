@@ -244,6 +244,15 @@ body.logged-out .login .linkish { align-self: flex-start; padding: 0; }
 .bonus-part { border-left: 3px solid var(--border); padding-left: 12px; margin: 10px 0; }
 .stats-block { font-size: .85rem; margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); }
 .saved-meta { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.tossup-sets { margin: 12px 0 16px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.tossup-sets h3 { margin: 0; }
+.tossup-sets > p { margin: 8px 0 0; }
+.set-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.set-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; }
+.set-row.on { border-color: var(--accent); background: var(--accent-soft); }
+.set-name { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; color: var(--text); cursor: pointer; text-align: left; }
+.set-name:hover { text-decoration: underline; }
+.set-tags .chip { cursor: default; }
 .saved-meta textarea { flex: 1 1 240px; width: auto; }
 .results-section { margin-top: 20px; }
 .pager { flex-wrap: wrap; }

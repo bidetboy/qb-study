@@ -55,7 +55,7 @@ export function filterParams(f = {}) {
   };
 }
 
-import { CATEGORIES, altParent } from './util.js?v=84b63065';
+import { CATEGORIES, altParent } from './util.js?v=b2f98fbf';
 export function categoryOf(sub) {
   if (CATEGORIES[sub]) return sub;
   for (const [cat, subs] of Object.entries(CATEGORIES)) if (subs.includes(sub)) return cat;

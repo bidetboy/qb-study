@@ -1,11 +1,14 @@
 // Search (query + lookup by ID), Packets, Frequency lists, Saved questions, and Stats.
-import { h, toast, confirmDialog, download, fmtDate, CATEGORIES, ALT_SUBCATEGORIES, shuffle } from './util.js?v=84b63065';
-import { api, filterParams } from './api.js?v=84b63065';
-import { db, save } from './store.js?v=84b63065';
-import { questionCard } from './qview.js?v=84b63065';
-import { openConverter } from './convert.js?v=84b63065';
-import { startReader } from './reader.js?v=84b63065';
-import { filterPanel, difficultyChips } from './filters.js?v=84b63065';
+import { h, toast, confirmDialog, promptDialog, modal, download, fmtDate, CATEGORIES, ALT_SUBCATEGORIES, shuffle } from './util.js?v=b2f98fbf';
+import { api, filterParams } from './api.js?v=b2f98fbf';
+import {
+  db, save, setIdsOf, createTossupSet, getTossupSet, renameTossupSet, deleteTossupSet,
+  tossupsInSet, addSavedToSets, setSavedSets, removeSavedFromSet,
+} from './store.js?v=b2f98fbf';
+import { questionCard } from './qview.js?v=b2f98fbf';
+import { openConverter } from './convert.js?v=b2f98fbf';
+import { startReader } from './reader.js?v=b2f98fbf';
+import { filterPanel, difficultyChips } from './filters.js?v=b2f98fbf';
 
 const practice = (q, type) => startReader({ type, questions: [q], label: 'Single question' });
 const cardActions = { cards: openConverter, practice };
@@ -295,16 +298,58 @@ export function renderFrequency(main) {
 
 /* ================= Saved ================= */
 
-const V = { text: '', type: 'all', tag: '', category: '' };
+const V = { text: '', type: 'all', tag: '', category: '', set: '' };
+
+// Checkbox list of tossup sets with a "new set" button. Resolves to chosen ids, or null if cancelled.
+function pickSets(title, selectedIds = [], okLabel = 'Save') {
+  return new Promise((resolve) => {
+    const chosen = new Set(selectedIds);
+    let done = false;
+    const el = h('div', { class: 'deck-picker' });
+    const paint = () => el.replaceChildren(
+      ...db.tossupSets.map((t) => h('label', { class: `deck-chip${chosen.has(t.id) ? ' on' : ''}` },
+        h('input', { type: 'checkbox', checked: chosen.has(t.id), onChange: (e) => { chosen[e.target.checked ? 'add' : 'delete'](t.id); paint(); } }),
+        t.name)),
+      h('button', { type: 'button', class: 'btn tiny ghost', onClick: async () => {
+        const name = await promptDialog('New set name', '', 'Create');
+        if (!name) return;
+        chosen.add(createTossupSet(name).id);
+        paint();
+      } }, '＋ New set'));
+    paint();
+    const finish = (v) => { if (!done) { done = true; resolve(v); m.close(); } };
+    const m = modal(title, h('div', { class: 'stack' },
+      el,
+      h('div', { class: 'row end gap-s' },
+        h('button', { class: 'btn', onClick: () => finish(null) }, 'Cancel'),
+        h('button', { class: 'btn primary', onClick: () => finish(db.tossupSets.map((t) => t.id).filter((id) => chosen.has(id))) }, okLabel))),
+      { onClose: () => { if (!done) { done = true; resolve(null); } } });
+  });
+}
+
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+export function practiceSet(id) {
+  const t = getTossupSet(id);
+  const qs = tossupsInSet(id).map((s) => s.data);
+  if (!t || !qs.length) return toast('This set has no tossups yet', 'error');
+  startReader({ type: 'tossup', questions: shuffle(qs), label: `Set: ${t.name}` });
+}
 
 export function renderSaved(main) {
   const list = h('div');
+  const setsBox = h('section', { class: 'tossup-sets' });
   const tagSel = h('select', { class: 'input' });
+  const setSel = h('select', { class: 'input' });
+  const typeSel = h('select', { class: 'input', onChange: (e) => { V.type = e.target.value; paint(); } });
   const catSel = h('select', { class: 'input', onChange: (e) => { V.category = e.target.value; paint(); } },
     h('option', { value: '' }, 'All categories'), Object.keys(CATEGORIES).map((c) => h('option', { value: c, selected: V.category === c }, c)));
 
+  if (V.set && !getTossupSet(V.set)) V.set = '';
+
   const filtered = () => db.saved.filter((s) =>
     (V.type === 'all' || s.type === V.type) &&
+    (!V.set || (s.type === 'tossup' && setIdsOf(s).includes(V.set))) &&
     (!V.tag || s.tags?.includes(V.tag)) &&
     (!V.category || s.data.category === V.category) &&
     (!V.text || JSON.stringify([s.data.question_sanitized, s.data.answer_sanitized, s.data.leadin_sanitized, s.data.parts_sanitized, s.data.answers_sanitized, s.note, s.tags]).toLowerCase().includes(V.text.toLowerCase())));
@@ -314,38 +359,104 @@ export function renderSaved(main) {
     tagSel.replaceChildren(h('option', { value: '' }, 'All tags'), ...tags.map((t) => h('option', { value: t, selected: V.tag === t }, t)));
   };
   tagSel.addEventListener('change', () => { V.tag = tagSel.value; paint(); });
+  setSel.addEventListener('change', () => { V.set = setSel.value; paint(); });
+
+  const paintFilters = () => {
+    paintTags();
+    setSel.hidden = !db.tossupSets.length;
+    setSel.replaceChildren(h('option', { value: '' }, 'All sets'), ...db.tossupSets.map((t) => h('option', { value: t.id, selected: V.set === t.id }, t.name)));
+    typeSel.replaceChildren(...[['all', 'All types'], ['tossup', 'Tossups'], ['bonus', 'Bonuses']].map(([v, l]) => h('option', { value: v, selected: V.type === v }, l)));
+  };
+
+  const newSet = async (items = []) => {
+    const name = await promptDialog('New set name', '', 'Create');
+    if (!name) return;
+    const t = createTossupSet(name);
+    if (items.length) addSavedToSets(items, [t.id]);
+    toast(items.length ? `Created “${name}” with ${plural(items.length, 'tossup')}` : `Created “${name}”`);
+    paint();
+  };
+
+  const paintSets = () => {
+    const sets = db.tossupSets;
+    setsBox.replaceChildren(
+      h('div', { class: 'row between wrap gap-s' },
+        h('h3', null, 'Tossup practice sets'),
+        h('button', { class: 'btn small', onClick: () => newSet() }, '＋ New set')),
+      sets.length
+        ? h('div', { class: 'set-list' }, sets.map((t) => {
+          const n = tossupsInSet(t.id).length;
+          return h('div', { class: `set-row${V.set === t.id ? ' on' : ''}` },
+            h('button', { class: 'set-name', title: 'Show this set', onClick: () => { V.set = V.set === t.id ? '' : t.id; paint(); } }, t.name),
+            h('span', { class: 'muted small grow' }, plural(n, 'tossup')),
+            h('button', { class: 'btn small primary', disabled: !n, onClick: () => practiceSet(t.id) }, '▶ Practice'),
+            h('button', { class: 'btn tiny ghost', onClick: async () => {
+              const name = await promptDialog('Rename set', t.name, 'Rename');
+              if (name) { renameTossupSet(t.id, name); paint(); }
+            } }, 'Rename'),
+            h('button', { class: 'btn tiny ghost', onClick: async () => {
+              if (!(await confirmDialog(`Delete the set “${t.name}”? The tossups stay saved.`, 'Delete'))) return;
+              deleteTossupSet(t.id);
+              if (V.set === t.id) V.set = '';
+              paint();
+            } }, 'Delete'));
+        }))
+        : h('p', { class: 'muted small' }, 'Group saved tossups into sets (say, all your American plays tossups) and practice just that set. Filter the list below, then use “Add to set…”, or press “Sets…” on any tossup.'));
+  };
 
   const paint = () => {
-    paintTags();
+    paintFilters();
+    paintSets();
     const items = filtered();
-    const tus = items.filter((s) => s.type === 'tossup').map((s) => s.data);
+    const tuItems = items.filter((s) => s.type === 'tossup');
+    const tus = tuItems.map((s) => s.data);
     const bs = items.filter((s) => s.type === 'bonus').map((s) => s.data);
+    const curSet = V.set && getTossupSet(V.set);
     list.replaceChildren(
       h('div', { class: 'row wrap gap-s', style: 'margin:12px 0' },
-        h('span', { class: 'muted grow' }, `${items.length} of ${db.saved.length} saved`),
-        h('button', { class: 'btn small primary', disabled: !tus.length, onClick: () => startReader({ type: 'tossup', questions: shuffle(tus), label: 'Saved tossups' }) }, `▶ Practice ${tus.length} tossups`),
-        h('button', { class: 'btn small', disabled: !bs.length, onClick: () => startReader({ type: 'bonus', questions: shuffle(bs), label: 'Saved bonuses' }) }, `▶ Practice ${bs.length} bonuses`),
+        h('span', { class: 'muted grow' }, curSet ? `${items.length} in “${curSet.name}”` : `${items.length} of ${db.saved.length} saved`),
+        h('button', { class: 'btn small primary', disabled: !tus.length, onClick: () => startReader({ type: 'tossup', questions: shuffle(tus), label: curSet ? `Set: ${curSet.name}` : 'Saved tossups' }) }, `▶ Practice ${tus.length} tossups`),
+        !curSet && h('button', { class: 'btn small', disabled: !bs.length, onClick: () => startReader({ type: 'bonus', questions: shuffle(bs), label: 'Saved bonuses' }) }, `▶ Practice ${bs.length} bonuses`),
+        !curSet && h('button', { class: 'btn small', disabled: !tuItems.length, title: 'Put every tossup shown here into a set', onClick: async () => {
+          if (!db.tossupSets.length) return newSet(tuItems);
+          const ids = await pickSets(`Add ${plural(tuItems.length, 'tossup')} to…`, [], 'Add');
+          if (!ids?.length) return;
+          addSavedToSets(tuItems, ids);
+          toast(`Added ${plural(tuItems.length, 'tossup')}`);
+          paint();
+        } }, `Add ${plural(tuItems.length, 'tossup')} to set…`),
         h('button', { class: 'btn small ghost', onClick: () => download('qb-saved-questions.json', JSON.stringify(items, null, 2)) }, 'Export')),
       ...(items.length ? items.map((s) => {
         const tagsInput = h('input', { class: 'input small', placeholder: 'tags, comma separated', value: (s.tags || []).join(', '),
           onChange: (e) => { s.tags = e.target.value.split(',').map((t) => t.trim()).filter(Boolean); save(); paintTags(); } });
         const noteInput = h('textarea', { class: 'input small', rows: 1, placeholder: 'Personal note…', value: s.note || '',
           onChange: (e) => { s.note = e.target.value; save(); } });
-        const card = questionCard(s.data, s.type, { ...cardActions, extra: h('button', { class: 'btn small ghost', onClick: async () => { if (await confirmDialog('Remove this saved question?', 'Remove')) { db.saved = db.saved.filter((x) => x !== s); save(); paint(); } } }, 'Remove') });
+        const removeBtn = curSet
+          ? h('button', { class: 'btn small ghost', onClick: () => { removeSavedFromSet(s, curSet.id); paint(); } }, 'Remove from set')
+          : h('button', { class: 'btn small ghost', onClick: async () => { if (await confirmDialog('Remove this saved question?', 'Remove')) { db.saved = db.saved.filter((x) => x !== s); save(); paint(); } } }, 'Remove');
+        const card = questionCard(s.data, s.type, { ...cardActions, extra: removeBtn });
         // replace the save toggle (redundant here) with tag + note editors
         card.querySelector('.btn').remove();
-        card.append(h('div', { class: 'row wrap gap-s saved-meta' }, h('span', { class: 'muted small' }, `Saved ${fmtDate(s.savedAt)}`), tagsInput, noteInput));
+        const setNames = setIdsOf(s).map((id) => getTossupSet(id)?.name).filter(Boolean);
+        card.append(h('div', { class: 'row wrap gap-s saved-meta' },
+          h('span', { class: 'muted small' }, `Saved ${fmtDate(s.savedAt)}`),
+          s.type === 'tossup' && h('span', { class: 'row wrap gap-s set-tags' },
+            setNames.map((n) => h('span', { class: 'chip' }, n)),
+            h('button', { class: 'btn tiny', onClick: async () => {
+              const ids = await pickSets('Sets for this tossup', setIdsOf(s));
+              if (ids) { setSavedSets(s, ids); paint(); }
+            } }, setNames.length ? 'Sets…' : '＋ Add to set')),
+          tagsInput, noteInput));
         return card;
-      }) : [h('div', { class: 'empty muted' }, db.saved.length ? 'Nothing matches these filters.' : 'No saved questions yet. Press S (or ☆ Save) in the reader, search or packets.')]));
+      }) : [h('div', { class: 'empty muted' }, curSet ? 'No tossups in this set yet.' : db.saved.length ? 'Nothing matches these filters.' : 'No saved questions yet. Press S (or ☆ Save) in the reader, search or packets.')]));
   };
 
   main.append(
     h('h2', null, 'Saved questions'),
+    setsBox,
     h('div', { class: 'row wrap gap-s' },
       h('input', { class: 'input grow', placeholder: 'Filter saved…', value: V.text, onInput: (e) => { V.text = e.target.value; paint(); } }),
-      h('select', { class: 'input', onChange: (e) => { V.type = e.target.value; paint(); } },
-        [['all', 'All types'], ['tossup', 'Tossups'], ['bonus', 'Bonuses']].map(([v, l]) => h('option', { value: v, selected: V.type === v }, l))),
-      catSel, tagSel),
+      typeSel, catSel, tagSel, setSel),
     list);
   paint();
 }

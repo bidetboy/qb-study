@@ -1,8 +1,8 @@
 // App state. Persisted to the signed-in user's Supabase row (cloud), the local dev server, or this browser.
-import { uid, toast, todayKey } from './util.js?v=84b63065';
-import { fetchCloud, pushCloud } from './auth.js?v=84b63065';
-import { clozeNumbers } from './cloze.js?v=84b63065';
-import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=84b63065';
+import { uid, toast, todayKey } from './util.js?v=b2f98fbf';
+import { fetchCloud, pushCloud } from './auth.js?v=b2f98fbf';
+import { clozeNumbers } from './cloze.js?v=b2f98fbf';
+import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=b2f98fbf';
 
 const LS_KEY = 'qbstudy-db';
 const IDB_NAME = 'qbstudy';
@@ -45,6 +45,7 @@ const defaults = () => ({
   notes: [],
   cards: [],
   saved: [],
+  tossupSets: [],
   history: [],
   dayLog: {},
   settings: {
@@ -397,6 +398,49 @@ export function toggleSaved(q, type) {
   db.saved.unshift({ qid: q._id, type, data: q, savedAt: Date.now(), tags: [], note: '' });
   save();
   return true;
+}
+
+/* ---------- tossup practice sets ---------- */
+// A set is a named group of saved tossups. Membership lives on the saved item (`s.sets`),
+// so un-saving a question also takes it out of every set.
+
+export const setIdsOf = (s) => s.sets || [];
+
+export function createTossupSet(name) {
+  const t = { id: uid(), name, created: Date.now() };
+  db.tossupSets.push(t);
+  save();
+  return t;
+}
+
+export function getTossupSet(id) { return db.tossupSets.find((t) => t.id === id); }
+
+export function renameTossupSet(id, name) {
+  const t = getTossupSet(id);
+  if (t) { t.name = name; save(); }
+}
+
+export function deleteTossupSet(id) {
+  db.tossupSets = db.tossupSets.filter((t) => t.id !== id);
+  for (const s of db.saved) if (s.sets?.includes(id)) s.sets = s.sets.filter((x) => x !== id);
+  save();
+}
+
+export const tossupsInSet = (id) => db.saved.filter((s) => s.type === 'tossup' && setIdsOf(s).includes(id));
+
+export function addSavedToSets(items, ids) {
+  for (const s of items) s.sets = [...new Set([...setIdsOf(s), ...ids])];
+  save();
+}
+
+export function setSavedSets(item, ids) {
+  item.sets = [...new Set(ids)];
+  save();
+}
+
+export function removeSavedFromSet(item, id) {
+  item.sets = setIdsOf(item).filter((x) => x !== id);
+  save();
 }
 
 export function addHistory(entry) {

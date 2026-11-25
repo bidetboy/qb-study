@@ -1,11 +1,11 @@
 // QB Reader-style practice: word-by-word tossups with buzzing, and bonuses part by part.
-import { h, esc, sanitizeHtml, toast } from './util.js?v=84b63065';
-import { api, filterParams } from './api.js?v=84b63065';
-import { db, save, addHistory, toggleSaved, isSaved } from './store.js?v=84b63065';
-import { checkAnswer } from './judge.js?v=84b63065';
-import { qMeta, statsBlock, saveButton } from './qview.js?v=84b63065';
-import { openConverter } from './convert.js?v=84b63065';
-import { filterPanel, filterSummary } from './filters.js?v=84b63065';
+import { h, esc, sanitizeHtml, toast } from './util.js?v=b2f98fbf';
+import { api, filterParams } from './api.js?v=b2f98fbf';
+import { db, save, addHistory, toggleSaved, isSaved } from './store.js?v=b2f98fbf';
+import { checkAnswer } from './judge.js?v=b2f98fbf';
+import { qMeta, statsBlock, saveButton } from './qview.js?v=b2f98fbf';
+import { openConverter } from './convert.js?v=b2f98fbf';
+import { filterPanel, filterSummary } from './filters.js?v=b2f98fbf';
 
 const R = {
   type: 'tossup',

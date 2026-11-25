@@ -1,7 +1,7 @@
 // Shared rendering for API questions: cards, metadata, stats, and actions.
-import { h, sanitizeHtml, toast, DIFFICULTIES } from './util.js?v=84b63065';
-import { api } from './api.js?v=84b63065';
-import { isSaved, toggleSaved } from './store.js?v=84b63065';
+import { h, sanitizeHtml, toast, DIFFICULTIES } from './util.js?v=b2f98fbf';
+import { api } from './api.js?v=b2f98fbf';
+import { isSaved, toggleSaved } from './store.js?v=b2f98fbf';
 
 export function qMeta(q) {
   const bits = [
