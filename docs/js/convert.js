@@ -1,8 +1,8 @@
 // Turn QB Reader questions into cloze notes.
-import { h, modal, toast, htmlToText, promptDialog } from './util.js?v=4b7a325a';
-import { db, save as saveDb, addNote, createDeck } from './store.js?v=4b7a325a';
-import { clozeNumbers, wrapSelection, clozeKeyHandler, renderCloze } from './cloze.js?v=4b7a325a';
-import { mainAnswer, qMeta } from './qview.js?v=4b7a325a';
+import { h, modal, toast, htmlToText, promptDialog } from './util.js?v=a368a4df';
+import { db, save as saveDb, addNote, createDeck } from './store.js?v=a368a4df';
+import { clozeNumbers, wrapSelection, clozeKeyHandler, renderCloze } from './cloze.js?v=a368a4df';
+import { mainAnswer, qMeta } from './qview.js?v=a368a4df';
 
 const ABBREV = /(?:\b(?:St|Mr|Mrs|Ms|Dr|Jr|Sr|vs|ca|No|Mt|Ft|Gen|Col|Lt|Sgt|Rev|Op|Vol|ed|U\.S|e\.g|i\.e|cf|al)|\b[A-Z])\.$/;
 
@@ -55,18 +55,20 @@ function bonusResults(q, given) {
 }
 
 // Checkbox chips for choosing one or more decks, with a button to make a new one.
-export function deckPicker(selectedIds = []) {
+// onChange is called after the choice changes.
+export function deckPicker(selectedIds = [], onChange = null) {
   const chosen = new Set(selectedIds);
   const el = h('div', { class: 'deck-picker' });
   const paint = () => el.replaceChildren(
     ...db.decks.map((d) => h('label', { class: `deck-chip${chosen.has(d.id) ? ' on' : ''}` },
-      h('input', { type: 'checkbox', checked: chosen.has(d.id), onChange: (e) => { chosen[e.target.checked ? 'add' : 'delete'](d.id); paint(); } }),
+      h('input', { type: 'checkbox', checked: chosen.has(d.id), onChange: (e) => { chosen[e.target.checked ? 'add' : 'delete'](d.id); paint(); onChange?.(); } }),
       d.name)),
     h('button', { type: 'button', class: 'btn tiny ghost', onClick: async () => {
       const name = await promptDialog('New deck name', '', 'Create');
       if (!name) return;
       chosen.add(createDeck(name).id);
       paint();
+      onChange?.();
     } }, '＋ New deck'));
   paint();
   return { el, get value() { return db.decks.map((d) => d.id).filter((id) => chosen.has(id)); } };

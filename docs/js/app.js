@@ -1,22 +1,23 @@
 // Entry point: router + deck management, card editor, and study (review) screen.
-import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=4b7a325a';
+import { h, $, $$, toast, confirmDialog, promptDialog, download, fmtDate, modal } from './util.js?v=a368a4df';
 import {
   db, loadDb, save, flush, replaceDb, createDeck, getDeck, deleteDeck, addNote, updateNote, deleteNote, getNote,
   deckIdsOf, notesInDeck, addNotesToDecks, removeNoteFromDeck, resetDeckProgress, extendNewToday,
   deckCounts, nextCard, nextDueTime, gradeCard, undoGrade, reviewsToday, storageMode,
   resetDb, refreshFromCloud, hasUnsaved,
-} from './store.js?v=4b7a325a';
+} from './store.js?v=a368a4df';
 import {
   authEnabled, currentUser, signIn, signUp, signOut, usernameOf, changePassword,
   generateRecoveryCode, setRecoveryCode, hasRecoveryCode, resetPassword,
-} from './auth.js?v=4b7a325a';
-import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=4b7a325a';
-import { previewLabels, fmtSpan } from './srs.js?v=4b7a325a';
-import { deckPicker, pickDecks, deckNames } from './convert.js?v=4b7a325a';
-import { renderReader } from './reader.js?v=4b7a325a';
-import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=4b7a325a';
-import { renderPlay } from './multiplayer.js?v=4b7a325a';
-import { initThemeToggle } from './theme.js?v=4b7a325a';
+} from './auth.js?v=a368a4df';
+import { renderCloze, stripCloze, clozeNumbers, wrapSelection, clozeKeyHandler } from './cloze.js?v=a368a4df';
+import { previewLabels, fmtSpan } from './srs.js?v=a368a4df';
+import { deckPicker, pickDecks, deckNames } from './convert.js?v=a368a4df';
+import { renderReader } from './reader.js?v=a368a4df';
+import { renderSearch, renderPackets, renderFrequency, renderSaved, renderStats } from './browse.js?v=a368a4df';
+import { renderPlay } from './multiplayer.js?v=a368a4df';
+import { renderImport } from './importer.js?v=a368a4df';
+import { initThemeToggle } from './theme.js?v=a368a4df';
 
 const main = $('#main');
 initThemeToggle($('#theme-toggle'));
@@ -71,15 +72,17 @@ function renderDecks(el) {
           h('thead', null, h('tr', null, multi && h('th', { class: 'pick' }, ''), h('th', null, 'Deck'), h('th', { class: 'num' }, 'New'), h('th', { class: 'num' }, 'Learn'), h('th', { class: 'num' }, 'Due'), h('th', null, ''))),
           h('tbody', null, db.decks.map((d) => row(d.id, d.name, counts(d.id))), multi && row('all', 'All decks', all, true)))
       : h('div', { class: 'empty' },
-          h('p', null, 'No decks yet. Create one below, then add your own cloze cards, or turn QB Reader questions into cards from the Reader, Search or Packets pages.')),
+          h('p', null, 'No decks yet. Create one below, then add your own cloze cards, or turn QB Reader questions into cards from the Reader, Search or Packets pages.'),
+          h('p', null, 'Already have cloze cards in a Google Doc or a text file? ', h('a', { href: '#/import' }, 'Import them'), '.')),
     multi ? h('div', { class: 'row gap-s wrap', style: 'margin-top:12px' }, studyPicked, pickedHint) : '',
-    h('form', { class: 'row gap-s', style: 'margin-top:16px', onSubmit: (e) => {
+    h('form', { class: 'row gap-s wrap', style: 'margin-top:16px', onSubmit: (e) => {
       e.preventDefault();
       const name = nameInput.value.trim();
       if (!name) return;
       createDeck(name);
       route();
-    } }, nameInput, h('button', { class: 'btn primary' }, 'Create deck')),
+    } }, nameInput, h('button', { class: 'btn primary' }, 'Create deck'),
+      h('a', { class: 'btn', href: '#/import', title: 'Make a deck from cloze notes in a text file, CSV/TSV, or text you paste' }, 'Import from a file…')),
     settingsPanel());
 }
 
@@ -224,6 +227,7 @@ function renderDeck(el, id) {
         h('span', { class: 'muted' }, h('span', { class: 'new' }, c.new), ' new · ', h('span', { class: 'learn' }, c.learn), ' learn · ', h('span', { class: 'due' }, c.review), ' due'),
         h('button', { class: 'btn primary', disabled: !(c.new + c.learn + c.review), onClick: () => (location.hash = `#/study/${id}`) }, 'Study'),
         h('button', { class: 'btn', onClick: () => (location.hash = `#/add/${id}`) }, '＋ Add card'),
+        h('button', { class: 'btn', title: 'Add cloze notes from a text file or pasted text', onClick: () => (location.hash = `#/import/${id}`) }, 'Import…'),
         h('button', { class: 'btn ghost', onClick: async () => { const name = await promptDialog('Rename deck', deck.name); if (name) { deck.name = name; save(); route(); } } }, 'Rename'),
         h('button', { class: 'btn ghost', onClick: async () => {
           const notes = notesInDeck(id);
@@ -240,9 +244,9 @@ function renderDeck(el, id) {
         } }, 'Reset progress'),
         h('button', { class: 'btn ghost', onClick: () => download(`${deck.name}.json`, JSON.stringify({ deck, notes: notesInDeck(id) }, null, 2)) }, 'Export'),
         h('button', { class: 'btn ghost danger', onClick: async () => { if (await confirmDialog(`Delete “${deck.name}” and all its cards? Notes that are also in other decks stay there.`)) { deleteDeck(id); location.hash = '#/decks'; } } }, 'Delete'))),
-    c.unseen > c.new && h('div', { class: 'panel limit-note row wrap gap-s' },
+    c.unseen > c.new ? h('div', { class: 'panel limit-note row wrap gap-s' },
       h('span', { class: 'grow' }, limitText(c)),
-      db.settings.newPerDay > 0 && h('button', { class: 'btn small', onClick: () => { extendNewToday(id, db.settings.newPerDay); route(); } }, `Study ${db.settings.newPerDay} more today`)),
+      db.settings.newPerDay > 0 && h('button', { class: 'btn small', onClick: () => { extendNewToday(id, db.settings.newPerDay); route(); } }, `Study ${db.settings.newPerDay} more today`)) : '',
     h('input', { class: 'input', placeholder: 'Search notes in this deck…', onInput: (e) => { filter = e.target.value; paint(); } }),
     bulk, list);
   paint();
@@ -406,6 +410,7 @@ const routes = [
   [/^#\/deck\/([^/]+)$/, (el, id) => renderDeck(el, id)],
   [/^#\/study\/([^/]+)$/, (el, id) => renderStudy(el, id)],
   [/^#\/add(?:\/([^/]+))?$/, (el, id) => renderEditor(el, { deckId: id })],
+  [/^#\/import(?:\/([^/]+))?$/, (el, id) => renderImport(el, id)],
   [/^#\/edit\/([^/]+)$/, (el, id) => {
     const note = getNote(id);
     if (!note) { el.append(h('p', null, 'Note not found.')); return; }
@@ -437,7 +442,7 @@ function route() {
   }
   if (!view && !routes.some(([re]) => re.test(hash))) { location.hash = '#/decks'; return; }
   const section = hash.split('/')[1];
-  const navKey = ['deck', 'study', 'add', 'edit'].includes(section) ? 'decks' : section;
+  const navKey = ['deck', 'study', 'add', 'edit', 'import'].includes(section) ? 'decks' : section;
   $$('nav a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === `#/${navKey}`));
 }
 

@@ -1,6 +1,6 @@
 // Answer judging: QB Reader's /check-answer, with a local matcher as offline fallback.
-import { sanitizeHtml } from './util.js?v=4b7a325a';
-import { api } from './api.js?v=4b7a325a';
+import { sanitizeHtml } from './util.js?v=a368a4df';
+import { api } from './api.js?v=a368a4df';
 
 export function normalize(s) {
   return String(s ?? '')

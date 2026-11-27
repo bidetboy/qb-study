@@ -27,8 +27,10 @@ export function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// The counter keeps ids made in the same millisecond (thousands, during an import) apart.
+let uidSeq = 0;
 export function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  return Date.now().toString(36) + (uidSeq++).toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
 // Questions from the API contain light HTML (<b>, <u>, <i>). Keep only formatting tags.

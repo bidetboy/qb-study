@@ -1,12 +1,12 @@
 // QB Reader-style practice: word-by-word tossups with buzzing, and bonuses part by part.
-import { h, esc, sanitizeHtml, toast, shuffle } from './util.js?v=4b7a325a';
-import { api, filterParams } from './api.js?v=4b7a325a';
-import { db, save, addHistory, toggleSaved, isSaved, getTossupSet, tossupsInSet } from './store.js?v=4b7a325a';
-import { saveToSetButton, saveToSet } from './sets.js?v=4b7a325a';
-import { checkAnswer } from './judge.js?v=4b7a325a';
-import { qMeta, statsBlock, saveButton } from './qview.js?v=4b7a325a';
-import { openConverter } from './convert.js?v=4b7a325a';
-import { filterPanel, filterSummary } from './filters.js?v=4b7a325a';
+import { h, esc, sanitizeHtml, toast, shuffle } from './util.js?v=a368a4df';
+import { api, filterParams } from './api.js?v=a368a4df';
+import { db, save, addHistory, toggleSaved, isSaved, getTossupSet, tossupsInSet } from './store.js?v=a368a4df';
+import { saveToSetButton, saveToSet } from './sets.js?v=a368a4df';
+import { checkAnswer } from './judge.js?v=a368a4df';
+import { qMeta, statsBlock, saveButton } from './qview.js?v=a368a4df';
+import { openConverter } from './convert.js?v=a368a4df';
+import { filterPanel, filterSummary } from './filters.js?v=a368a4df';
 
 const R = {
   type: 'tossup',

@@ -1,5 +1,5 @@
 // Anki-style cloze syntax: {{c1::answer}} or {{c1::answer::hint}}
-import { esc } from './util.js?v=4b7a325a';
+import { esc } from './util.js?v=a368a4df';
 
 const RE = /\{\{c(\d+)::([\s\S]*?)(?:::([\s\S]*?))?\}\}/g;
 
@@ -27,6 +27,11 @@ export function renderCloze(text, n, mode) {
 
 export function stripCloze(text) {
   return String(text).replace(RE, (_, n, ans) => ans);
+}
+
+// What card n hides: the answer of every cloze numbered n.
+export function clozeAnswers(text, n) {
+  return [...String(text).matchAll(RE)].filter((m) => Number(m[1]) === n).map((m) => m[2]);
 }
 
 // Wrap the textarea's selection in a cloze. sameNumber reuses the highest existing number.

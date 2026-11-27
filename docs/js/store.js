@@ -1,8 +1,8 @@
 // App state. Persisted to the signed-in user's Supabase row (cloud), the local dev server, or this browser.
-import { uid, toast, todayKey } from './util.js?v=4b7a325a';
-import { fetchCloud, pushCloud } from './auth.js?v=4b7a325a';
-import { clozeNumbers } from './cloze.js?v=4b7a325a';
-import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=4b7a325a';
+import { uid, toast, todayKey } from './util.js?v=a368a4df';
+import { fetchCloud, pushCloud } from './auth.js?v=a368a4df';
+import { clozeNumbers } from './cloze.js?v=a368a4df';
+import { answer as srsAnswer, startOfDay, DAY } from './srs.js?v=a368a4df';
 
 const LS_KEY = 'qbstudy-db';
 const IDB_NAME = 'qbstudy';
@@ -260,6 +260,19 @@ export function addNote({ deckIds, text, extra = '', source = null }) {
   return n;
 }
 
+// Add many new notes at once, in order (an import). Each gets its own millisecond so they keep
+// that order, and the data is saved once instead of after every note.
+export function addNotes(texts, deckIds) {
+  const t = Date.now();
+  texts.forEach((text, i) => {
+    const n = { id: uid(), text, extra: '', source: null, created: t + i, modified: t + i };
+    setDecks(n, deckIds);
+    db.notes.push(n);
+    for (const ord of clozeNumbers(text)) db.cards.push(newCard(n, ord));
+  });
+  save();
+}
+
 export function updateNote(note, { deckIds, ...patch }) {
   Object.assign(note, patch, { modified: Date.now() });
   if (deckIds) setDecks(note, deckIds);
@@ -291,13 +304,13 @@ export function removeNoteFromDeck(note, deckId) {
   save();
 }
 
+const newCard = (note, ord) => ({ id: uid(), noteId: note.id, ord, state: 'new', due: 0, interval: 0, ease: 2.5, step: 0, reps: 0, lapses: 0, created: note.created + ord });
+
 function syncCards(note) {
   const nums = clozeNumbers(note.text);
   db.cards = db.cards.filter((c) => c.noteId !== note.id || nums.includes(c.ord));
   for (const ord of nums) {
-    if (!db.cards.some((c) => c.noteId === note.id && c.ord === ord)) {
-      db.cards.push({ id: uid(), noteId: note.id, ord, state: 'new', due: 0, interval: 0, ease: 2.5, step: 0, reps: 0, lapses: 0, created: note.created + ord });
-    }
+    if (!db.cards.some((c) => c.noteId === note.id && c.ord === ord)) db.cards.push(newCard(note, ord));
   }
 }
 
